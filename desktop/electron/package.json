@@ -1,0 +1,11 @@
+{
+  "name": "smartgonext-erp-desktop",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "electron": "^22.0.0"
+  }
+}
