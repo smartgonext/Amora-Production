@@ -25,10 +25,17 @@ class Customer(BaseModel):
     last_purchase_date = db.Column(db.DateTime, nullable=True)
     notes = db.Column(db.Text, nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
+    custom_fields = db.Column(db.JSON, nullable=True)
     
     ledger_entries = db.relationship('CustomerLedger', backref='customer', lazy='dynamic', cascade="all, delete-orphan")
     invoices = db.relationship('Invoice', backref='customer', lazy='dynamic')
     documents = db.relationship('CustomerDocument', backref='customer', lazy='dynamic', cascade="all, delete-orphan")
+
+    def to_dict(self):
+        data = super().to_dict()
+        if self.custom_fields and isinstance(self.custom_fields, dict):
+            data.update(self.custom_fields)
+        return data
 
 
 class CustomerDocument(BaseModel):
@@ -81,6 +88,7 @@ class Supplier(BaseModel):
     credit_limit = db.Column(db.Numeric(10, 2), default=0.00)
     total_purchases = db.Column(db.Numeric(12, 2), default=0.00)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
+    is_job_work_vendor = db.Column(db.Boolean, default=False, nullable=False)
     
     purchase_orders = db.relationship('PurchaseOrder', backref='supplier', lazy='dynamic')
     ledger_entries = db.relationship('SupplierLedger', backref='supplier', lazy='dynamic', cascade="all, delete-orphan")

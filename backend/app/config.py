@@ -4,7 +4,7 @@ from datetime import timedelta
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY', 'smartgonext-super-secret-key')
-    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'jwt-super-secret-key')
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'jwt-super-secret-key-32-bytes-long-for-security-verification')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # No JWT timeouts - tokens never expire

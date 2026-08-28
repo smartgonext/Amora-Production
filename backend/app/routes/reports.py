@@ -19,7 +19,7 @@ reports_bp = Blueprint('reports', __name__)
 
 def get_current_user():
     user_id = get_jwt_identity()
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 
 def parse_date_params():

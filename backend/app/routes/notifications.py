@@ -11,7 +11,7 @@ notifications_bp = Blueprint('notifications', __name__)
 
 def get_current_user():
     user_id = get_jwt_identity()
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 
 @notifications_bp.route('', methods=['GET'])
@@ -69,7 +69,7 @@ def mark_read(notification_id):
     if not user:
         return jsonify({"data": None, "errors": ["User not found"]}), 404
 
-    notif = Notification.query.get(notification_id)
+    notif = db.session.get(Notification, notification_id)
     if not notif or notif.tenant_id != user.tenant_id:
         return jsonify({"data": None, "errors": ["Notification not found"]}), 404
 

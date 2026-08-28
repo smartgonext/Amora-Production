@@ -13,6 +13,12 @@ from app.models.project import Project, Task, TaskComment, TaskAttachment, Kanba
 from app.models.document import Document, DocumentVersion, DocumentTag
 from app.models.audit import AuditLog, Notification, EventLog, Reminder, ScheduledJob, RestoreBin, BackupLog, SyncLog
 from app.models.template import InvoiceTemplate, AgreementTemplate, ReceiptTemplate, QuotationTemplate, PurchaseOrderTemplate, DeliveryChallanTemplate, TaxSetting
+from app.models.manufacturing import (TenantManufacturingConfig, BomHeader, BomItem, BomByproduct,
+    WorkCenter, Machine, BomRoutingOperation, SupplierItemMapping, MaterialRequirementPlan,
+    WorkOrder, WorkOrderOperation, ProductionMaterialIssue, QualityInspection, JobWorkOrder,
+    MaterialUomConversion, BatchLineage)
+from app.models.bakery import (BakingPlan, BakingPlanItem, DeliveryRoute,
+                                DeliveryRouteStop, HaccpControlPoint)
 
 __all__ = [
     'BaseModel',
@@ -36,5 +42,11 @@ __all__ = [
     'Project', 'Task', 'TaskComment', 'TaskAttachment', 'KanbanBoard', 'KanbanColumn', 'KanbanCard',
     'Document', 'DocumentVersion', 'DocumentTag',
     'AuditLog', 'Notification', 'EventLog', 'Reminder', 'ScheduledJob', 'RestoreBin', 'BackupLog', 'SyncLog',
-    'InvoiceTemplate', 'AgreementTemplate', 'ReceiptTemplate', 'QuotationTemplate', 'PurchaseOrderTemplate', 'DeliveryChallanTemplate', 'TaxSetting'
+    'InvoiceTemplate', 'AgreementTemplate', 'ReceiptTemplate', 'QuotationTemplate', 'PurchaseOrderTemplate', 'DeliveryChallanTemplate', 'TaxSetting',
+    'TenantManufacturingConfig', 'BomHeader', 'BomItem', 'BomByproduct',
+    'WorkCenter', 'Machine', 'BomRoutingOperation', 'SupplierItemMapping', 'MaterialRequirementPlan',
+    'WorkOrder', 'WorkOrderOperation', 'ProductionMaterialIssue', 'QualityInspection', 'JobWorkOrder',
+    'MaterialUomConversion', 'BatchLineage',
+    'BakingPlan', 'BakingPlanItem', 'DeliveryRoute', 'DeliveryRouteStop',
+    'HaccpControlPoint'
 ]

@@ -4,11 +4,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FiBriefcase, FiPlus, FiSearch, FiEdit2, FiTrash2, FiX, FiCheck, FiAlertTriangle, FiPhone, FiMail, FiMapPin, FiCreditCard } from 'react-icons/fi';
 import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
+import { useManufacturingConfig } from '../../hooks/useManufacturingConfig';
 
 export default function SuppliersPage() {
   const queryClient = useQueryClient();
+  const { hasMfg } = useManufacturingConfig();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [supplierToEdit, setSupplierToEdit] = useState(null);
@@ -31,7 +34,8 @@ export default function SuppliersPage() {
     bank_ifsc: '',
     payment_terms: 'Net 30',
     credit_limit: 0,
-    is_active: true
+    is_active: true,
+    is_job_work_vendor: false
   });
 
   // Fetch Suppliers
@@ -111,7 +115,8 @@ export default function SuppliersPage() {
       bank_ifsc: '',
       payment_terms: 'Net 30',
       credit_limit: 0,
-      is_active: true
+      is_active: true,
+      is_job_work_vendor: false
     });
   };
 
@@ -137,7 +142,8 @@ export default function SuppliersPage() {
       bank_ifsc: supplier.bank_ifsc || '',
       payment_terms: supplier.payment_terms || 'Net 30',
       credit_limit: supplier.credit_limit || 0,
-      is_active: supplier.is_active !== false
+      is_active: supplier.is_active !== false,
+      is_job_work_vendor: Boolean(supplier.is_job_work_vendor)
     });
     setIsEditOpen(true);
   };
@@ -157,8 +163,14 @@ export default function SuppliersPage() {
   };
 
   const filteredSuppliers = suppliers.filter(s => {
-    if (statusFilter === 'active') return s.is_active;
-    if (statusFilter === 'inactive') return !s.is_active;
+    if (statusFilter === 'active' && !s.is_active) return false;
+    if (statusFilter === 'inactive' && s.is_active) return false;
+    
+    if (hasMfg) {
+      if (typeFilter === 'materials' && s.is_job_work_vendor) return false;
+      if (typeFilter === 'subcontractors' && !s.is_job_work_vendor) return false;
+    }
+    
     return true;
   });
 
@@ -214,8 +226,8 @@ export default function SuppliersPage() {
       </div>
 
       {/* Filters and Controls */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
-        <div className="relative w-full md:w-80">
+      <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
+        <div className="relative w-full lg:w-80">
           <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
@@ -225,20 +237,46 @@ export default function SuppliersPage() {
             className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
           />
         </div>
-        <div className="flex items-center space-x-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-          {['all', 'active', 'inactive'].map((status) => (
-            <button
-              key={status}
-              onClick={() => setStatusFilter(status)}
-              className={`px-4 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all duration-150 border ${
-                statusFilter === status
-                  ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-transparent shadow-md'
-                  : 'bg-transparent text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
-              }`}
-            >
-              {status}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
+          {/* Vendor Type Filter */}
+          {hasMfg && (
+            <div className="flex items-center space-x-1 border border-slate-200 dark:border-slate-700 rounded-lg p-1">
+              {[
+                { id: 'all', label: 'All Vendors' },
+                { id: 'materials', label: 'Material Suppliers' },
+                { id: 'subcontractors', label: 'Subcontractors' }
+              ].map((type) => (
+                <button
+                  key={type.id}
+                  onClick={() => setTypeFilter(type.id)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                    typeFilter === type.id
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'bg-transparent text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  {type.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Status Filter */}
+          <div className="flex items-center space-x-1 border border-slate-200 dark:border-slate-700 rounded-lg p-1">
+            {['all', 'active', 'inactive'].map((status) => (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold uppercase tracking-wider transition-all duration-150 ${
+                  statusFilter === status
+                    ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
+                    : 'bg-transparent text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -282,7 +320,14 @@ export default function SuppliersPage() {
                           {s.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()}
                         </div>
                         <div>
-                          <div className="font-semibold text-slate-900 dark:text-white">{s.name}</div>
+                          <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                            {s.name}
+                            {hasMfg && s.is_job_work_vendor && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400">
+                                Subcontractor
+                              </span>
+                            )}
+                          </div>
                           {s.contact_person && <div className="text-xs text-slate-400">CP: {s.contact_person}</div>}
                         </div>
                       </div>
@@ -448,6 +493,22 @@ export default function SuppliersPage() {
                       <option>Net 60</option>
                     </select>
                   </div>
+                  {hasMfg && (
+                    <div className="space-y-1.5 flex items-center pt-5">
+                      <label className="flex items-center space-x-2.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.is_job_work_vendor}
+                          onChange={(e) => setFormData({ ...formData, is_job_work_vendor: e.target.checked })}
+                          className="rounded text-indigo-600 focus:ring-indigo-500 h-4.5 w-4.5"
+                        />
+                        <div>
+                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Is Job Work Subcontractor?</span>
+                          <p className="text-[10px] text-slate-400">Enable if you send components to this vendor for processing.</p>
+                        </div>
+                      </label>
+                    </div>
+                  )}
                 </div>
 
                 {/* Bank Details section */}
@@ -717,6 +778,32 @@ export default function SuppliersPage() {
                       className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
+                </div>
+
+                 <div className="flex flex-col sm:flex-row gap-6 pt-2">
+                  <label className="flex items-center space-x-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.is_active}
+                      onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                      className="rounded text-indigo-600 focus:ring-indigo-500 h-4.5 w-4.5"
+                    />
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Set Account to Active</span>
+                  </label>
+                  {hasMfg && (
+                    <label className="flex items-center space-x-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.is_job_work_vendor}
+                        onChange={(e) => setFormData({ ...formData, is_job_work_vendor: e.target.checked })}
+                        className="rounded text-indigo-600 focus:ring-indigo-500 h-4.5 w-4.5"
+                      />
+                      <div>
+                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Is Job Work Subcontractor?</span>
+                        <p className="text-[10px] text-slate-400">Enable if you send components to this vendor for processing.</p>
+                      </div>
+                    </label>
+                  )}
                 </div>
 
                 <div className="p-5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end space-x-3 bg-slate-50 dark:bg-slate-800/40 -mx-6 -mb-6">

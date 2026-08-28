@@ -18,9 +18,7 @@ from app.models.sales import Invoice, InvoiceItem
 @pytest.fixture
 def app():
     """Create application for testing"""
-    app = create_app()
-    app.config['TESTING'] = True
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+    app = create_app('test')
     
     with app.app_context():
         db.create_all()

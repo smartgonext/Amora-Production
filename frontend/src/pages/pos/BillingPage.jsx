@@ -6,6 +6,7 @@ import apiClient from '../../api/client';
 import toast from 'react-hot-toast';
 import LineItemsEditor from '../../components/shared/LineItemsEditor';
 import { useCompany } from '../../context/CompanyContext';
+import CustomTemplateRenderer from '../../components/templates/CustomTemplateRenderer';
 
 const EMPTY_SALES_ITEM = {
   type: 'Sales',
@@ -214,7 +215,9 @@ export default function BillingPage() {
   const getItemsSource = () => {
     switch (invoiceType) {
       case 'Sales':
-        return products.map(p => ({ ...p, _type: 'product', _typeLabel: p.is_service ? 'Service' : 'Product' }));
+        return products
+          .filter(p => !p.is_raw_material && (p.type || '').toLowerCase() !== 'raw_material' && (p.type || '').toLowerCase() !== 'packaging')
+          .map(p => ({ ...p, _type: 'product', _typeLabel: p.is_service ? 'Service' : 'Product' }));
       case 'Rental':
         return equipmentList.map(e => ({ 
           ...e, 
@@ -765,6 +768,19 @@ export default function BillingPage() {
   const renderPrintTemplate = (doc, format) => {
     const { type, data } = doc;
     const customer = customers.find(c => c.id === data.customer_id) || {};
+
+    if (format === 'Custom') {
+      const docTypeKey = type === 'Quotation' ? 'quotation' : 'invoice';
+      return (
+        <CustomTemplateRenderer
+          docType={docTypeKey}
+          documentData={data}
+          company={company}
+          customer={customer}
+        />
+      );
+    }
+
     const itemsList = data.items || [];
     
     const subtotal = parseFloat(data.subtotal || 0);
@@ -1336,9 +1352,11 @@ export default function BillingPage() {
 
       {/* Search Datalists */}
       <datalist id="sales-products-datalist">
-        {products.map(p => (
-          <option key={p.id} value={p.name} />
-        ))}
+        {products
+          .filter(p => !p.is_raw_material && (p.type || '').toLowerCase() !== 'raw_material' && (p.type || '').toLowerCase() !== 'packaging')
+          .map(p => (
+            <option key={p.id} value={p.name} />
+          ))}
       </datalist>
       <datalist id="rental-equipments-datalist">
         {equipmentList.map(e => (
@@ -1515,6 +1533,7 @@ export default function BillingPage() {
                           <td className="py-2.5 px-3 relative">
                             <input
                               type="text"
+                              data-enter-submit="true"
                               value={itm.product_name}
                               placeholder="Type or select product..."
                               list="sales-products-datalist"
@@ -2432,6 +2451,16 @@ export default function BillingPage() {
                         }
                       }
                       @page { size: 80mm auto; margin: 0; }
+                    ` : printFormat === 'Custom' ? `
+                      @media print {
+                        body * { visibility: hidden; }
+                        #print-area, #print-area * { visibility: visible; }
+                        #print-area {
+                          position: absolute; left: 0; top: 0; width: 595px; height: 842px;
+                          margin: 0; padding: 0; background: white;
+                        }
+                      }
+                      @page { size: A4 portrait; margin: 0; }
                     ` : `
                       @media print {
                         body * { visibility: hidden; }

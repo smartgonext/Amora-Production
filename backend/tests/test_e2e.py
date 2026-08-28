@@ -42,10 +42,7 @@ def app():
     os.environ['FLASK_ENV']  = 'testing'
 
     from app import create_app
-    test_app = create_app('dev')
-    test_app.config.update({
-        'TESTING':           True,
-        'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+    test_app = create_app('test', config_overrides={
         'JWT_SECRET_KEY':    'test-jwt-secret-key',
         'WTF_CSRF_ENABLED':  False,
     })
@@ -492,13 +489,17 @@ class TestSync:
 class TestRateLimit:
     def test_login_rate_limited(self, client):
         """After 10 bad attempts within 60 s the endpoint must return 429."""
-        hit_429 = False
-        for _ in range(15):
-            r = json_post(client, '/api/v1/auth/login', {
-                'email':    'nonexistent@rate.test',
-                'password': 'BadPass1!',
-            })
-            if r.status_code == 429:
-                hit_429 = True
-                break
-        assert hit_429, 'Rate limit was never triggered after 15 attempts'
+        client.application.config['RATELIMIT_ENABLED'] = True
+        try:
+            hit_429 = False
+            for _ in range(15):
+                r = json_post(client, '/api/v1/auth/login', {
+                    'email':    'nonexistent@rate.test',
+                    'password': 'BadPass1!',
+                })
+                if r.status_code == 429:
+                    hit_429 = True
+                    break
+            assert hit_429, 'Rate limit was never triggered after 15 attempts'
+        finally:
+            client.application.config['RATELIMIT_ENABLED'] = False

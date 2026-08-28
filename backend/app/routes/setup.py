@@ -8,13 +8,14 @@ from app.models.template import (TaxSetting, InvoiceTemplate, AgreementTemplate,
                                   ReceiptTemplate, QuotationTemplate,
                                   PurchaseOrderTemplate, DeliveryChallanTemplate)
 from app.utils.default_templates import DEFAULT_BLUEPRINTS
+from app.services.business_type_config import seed_business_type_config, get_company_ui_config
 
 setup_bp = Blueprint('setup', __name__)
 
 
 def get_current_user():
     user_id = get_jwt_identity()
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 
 @setup_bp.route('/company', methods=['PUT'])
@@ -60,6 +61,9 @@ def set_business_type():
     company.business_type = business_type
     company.tenant.business_type = business_type
     db.session.add(company)
+    # Re-hydrate the company-type driven module/feature config so changing the
+    # business type instantly reshapes which modules the tenant sees.
+    seed_business_type_config(user.tenant_id, company.id, business_type, commit=False)
     db.session.commit()
     
     return jsonify({"data": {"business_type": business_type}, "meta": None, "errors": None}), 200
@@ -276,3 +280,34 @@ def setup_status():
         "meta": None,
         "errors": None
     }), 200
+
+
+@setup_bp.route('/ui-config', methods=['GET'])
+@jwt_required()
+def get_ui_config():
+    """Return the company's effective UI configuration.
+
+    Driven by the selected business type: which top-level modules are shown,
+    which are hidden, and which feature flags are enabled so the front-end can
+    adapt nav/menus and field visibility.
+    """
+    user = get_current_user()
+    if not user:
+        return jsonify({"data": None, "meta": None, "errors": ["User not found"]}), 404
+
+    company = Company.query.filter_by(id=user.company_id, is_deleted=False).first()
+    if not company:
+        return jsonify({
+            # No company -> nothing restricted; front-end falls back gracefully.
+            "data": {
+                "business_type": None,
+                "enabled_modules": [],
+                "hidden_modules": [],
+                "features": {},
+            },
+            "meta": None,
+            "errors": ["Company not found"],
+        }), 404
+
+    cfg = get_company_ui_config(company)
+    return jsonify({"data": cfg, "meta": None, "errors": None}), 200

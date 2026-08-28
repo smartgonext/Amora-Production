@@ -35,12 +35,12 @@ export default function ProductsPage() {
     is_active: true
   });
 
-  // Fetch Products
+  // Fetch Products (Finished Goods only, filter out raw materials)
   const { data: productsResponse, isLoading, error } = useQuery({
     queryKey: ['products', searchTerm],
     queryFn: async () => {
       const response = await apiClient.get('/products', {
-        params: { search: searchTerm }
+        params: { search: searchTerm, is_raw_material: 'false' }
       });
       return response.data;
     }

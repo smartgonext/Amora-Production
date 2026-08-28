@@ -80,6 +80,7 @@ export default function SelectWithInlineAdd({ field, value, onChange, className 
             <form onSubmit={handleSubmit} className="space-y-3">
               <input
                 autoFocus
+                data-enter-submit="true"
                 value={newOption}
                 onChange={(e) => setNewOption(e.target.value)}
                 placeholder="Enter new option value..."

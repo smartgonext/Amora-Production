@@ -5,6 +5,7 @@ import { FiSliders, FiPlus, FiX, FiCheck, FiArrowRight, FiUser, FiInfo, FiActivi
 import apiClient from '../../api/client';
 import { formatINR } from '../../utils/format';
 import toast from 'react-hot-toast';
+import DynamicFormSections from '../../components/common/DynamicFormSections';
 
 export default function AmcPage() {
   const queryClient = useQueryClient();
@@ -14,14 +15,18 @@ export default function AmcPage() {
   const [selectedSchedule, setSelectedSchedule] = useState(null);
 
   // Form State - Contract
-  const [customerId, setCustomerId] = useState('');
-  const [title, setTitle] = useState('');
-  const [value, setValue] = useState(45000);
-  const [interval, setInterval] = useState(90);
-  const [machineName, setMachineName] = useState('');
-  const [machineSerial, setMachineSerial] = useState('');
-  const [model, setModel] = useState('');
-  const [capacity, setCapacity] = useState('');
+  const [contractForm, setContractForm] = useState({
+    customer_id: '',
+    contract_title: '',
+    amc_value: 45000,
+    service_interval_days: 90,
+    machine_name: '',
+    machine_serial: '',
+    model: '',
+    capacity: '',
+    start_date: '',
+    end_date: ''
+  });
 
   // Form State - Log Visit
   const [findings, setFindings] = useState('All fluid levels and cables inspected. Replaced filter.');
@@ -83,14 +88,18 @@ export default function AmcPage() {
   });
 
   const resetContractForm = () => {
-    setCustomerId('');
-    setTitle('');
-    setValue(45000);
-    setInterval(90);
-    setMachineName('');
-    setMachineSerial('');
-    setModel('');
-    setCapacity('');
+    setContractForm({
+      customer_id: '',
+      contract_title: '',
+      amc_value: 45000,
+      service_interval_days: 90,
+      machine_name: '',
+      machine_serial: '',
+      model: '',
+      capacity: '',
+      start_date: '',
+      end_date: ''
+    });
   };
 
   const resetVisitForm = () => {
@@ -101,14 +110,10 @@ export default function AmcPage() {
   const handleCreateContract = (e) => {
     e.preventDefault();
     createAmcMutation.mutate({
-      customer_id: parseInt(customerId),
-      contract_title: title,
-      amc_value: parseFloat(value),
-      service_interval_days: parseInt(interval),
-      machine_name: machineName,
-      machine_serial: machineSerial,
-      model,
-      capacity
+      ...contractForm,
+      customer_id: parseInt(contractForm.customer_id),
+      amc_value: parseFloat(contractForm.amc_value),
+      service_interval_days: parseInt(contractForm.service_interval_days)
     });
   };
 
@@ -302,95 +307,28 @@ export default function AmcPage() {
                 </button>
               </div>
 
-              <form onSubmit={handleCreateContract} className="flex-1 overflow-y-auto p-6 space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-500 uppercase">Select Customer *</label>
-                  <select
-                    required
-                    value={customerId}
-                    onChange={(e) => setCustomerId(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  >
-                    <option value="">-- Choose Customer --</option>
-                    {customers.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-500 uppercase">Contract Title *</label>
-                  <input
-                    type="text"
-                    required
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. Forklift Maintenance SLA 2026"
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-500 uppercase">Contract SLA Value (₹) *</label>
-                    <input
-                      type="number"
-                      required
-                      value={value}
-                      onChange={(e) => setValue(parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-500 uppercase">Service Interval (Days)</label>
-                    <select
-                      value={interval}
-                      onChange={(e) => setInterval(parseInt(e.target.value))}
-                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                    >
-                      <option value={30}>Monthly (30 days)</option>
-                      <option value={90}>Quarterly (90 days)</option>
-                      <option value={180}>Bi-Annual (180 days)</option>
-                      <option value={365}>Annual (365 days)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-4">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Associated Equipment / Machine</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5 col-span-2">
-                      <label className="text-xs font-semibold text-slate-500 uppercase">Machine Name</label>
-                      <input
-                        type="text"
-                        value={machineName}
-                        onChange={(e) => setMachineName(e.target.value)}
-                        placeholder="e.g. Caterpillar Diesel Forklift"
+              <form onSubmit={handleCreateContract} className="flex-1 overflow-y-auto p-6 space-y-4 max-h-[70vh]">
+                <DynamicFormSections
+                  entityType="amc"
+                  formData={contractForm}
+                  onChange={(key, val) => setContractForm(prev => ({ ...prev, [key]: val }))}
+                  showStatic={true}
+                  customRenderers={{
+                    customer_id: (field, val, onChange) => (
+                      <select
+                        required={field.is_required}
+                        value={val}
+                        onChange={(e) => onChange(e.target.value)}
                         className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-500 uppercase">Serial/Plate Number</label>
-                      <input
-                        type="text"
-                        value={machineSerial}
-                        onChange={(e) => setMachineSerial(e.target.value)}
-                        placeholder="e.g. SN-8890"
-                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-500 uppercase">Model Number</label>
-                      <input
-                        type="text"
-                        value={model}
-                        onChange={(e) => setModel(e.target.value)}
-                        placeholder="e.g. CAT-FL20"
-                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                      />
-                    </div>
-                  </div>
-                </div>
+                      >
+                        <option value="">-- Choose Customer --</option>
+                        {customers.map(c => (
+                          <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>
+                        ))}
+                      </select>
+                    )
+                  }}
+                />
 
                 <div className="p-5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end space-x-3 bg-slate-50 dark:bg-slate-800/40 -mx-6 -mb-6">
                   <button type="button" onClick={() => setIsAddOpen(false)} className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm">Cancel</button>

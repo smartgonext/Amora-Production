@@ -112,6 +112,7 @@ class Invoice(BaseModel):
     notes = db.Column(db.Text, nullable=True)
     terms_conditions = db.Column(db.Text, nullable=True)
     is_pos = db.Column(db.Boolean, default=False)
+    custom_fields = db.Column(db.JSON, nullable=True)
     
     items = db.relationship('InvoiceItem', backref='invoice', lazy='dynamic', cascade="all, delete-orphan")
     receipts = db.relationship('ReceiptAllocation', backref='invoice', lazy='dynamic', cascade="all, delete-orphan")
@@ -120,6 +121,8 @@ class Invoice(BaseModel):
         data = super().to_dict()
         data['tax_amount'] = float(self.cgst_amount or 0) + float(self.sgst_amount or 0) + float(self.igst_amount or 0)
         data['items'] = [item.to_dict() for item in self.items]
+        if self.custom_fields and isinstance(self.custom_fields, dict):
+            data.update(self.custom_fields)
         return data
 
 

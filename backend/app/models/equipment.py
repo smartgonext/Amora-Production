@@ -27,6 +27,7 @@ class Equipment(BaseModel):
     fitness_expiry = db.Column(db.DateTime, nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     notes = db.Column(db.Text, nullable=True)
+    custom_fields = db.Column(db.JSON, nullable=True)
     
     bookings = db.relationship('RentalBooking', backref='equipment', lazy='dynamic')
     documents = db.relationship('EquipmentDocument', backref='equipment', lazy='dynamic', cascade="all, delete-orphan")
@@ -91,8 +92,15 @@ class RentalBooking(BaseModel):
     status = db.Column(db.String(20), default='Active', index=True)  # Active, Completed, Cancelled, Overdue
     return_condition_notes = db.Column(db.Text, nullable=True)
     agreement_document_url = db.Column(db.String(255), nullable=True)
+    custom_fields = db.Column(db.JSON, nullable=True)
     
     extensions = db.relationship('RentalExtension', backref='booking', lazy='dynamic', cascade="all, delete-orphan")
+
+    def to_dict(self):
+        data = super().to_dict()
+        if self.custom_fields and isinstance(self.custom_fields, dict):
+            data.update(self.custom_fields)
+        return data
 
 
 class RentalExtension(BaseModel):

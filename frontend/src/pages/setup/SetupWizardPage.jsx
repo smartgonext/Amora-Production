@@ -5,13 +5,10 @@ import { FiCheck, FiChevronRight, FiChevronLeft } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
 const BUSINESS_TYPES = [
-  'Retail Shop', 'Wholesale Distribution', 'Restaurant', 'Cafe', 'Bakery',
-  'Spa', 'Salon', 'Equipment Rental', 'Hospital', 'Clinic',
-  'School', 'College', 'Apartment Management', 'Hostel Management',
-  'Hotel', 'Lodge', 'Manufacturing Unit', 'Textile Business',
-  'Finance', 'Microfinance', 'Construction', 'Repair Shop',
-  'Vehicle Service', 'Mobile Shop', 'Medical Shop', 'Pharmacy',
-  'Jewellery Shop', 'Supermarket', 'Crane & Forklift'
+  'Retail Shop', 'Wholesale Distribution', 'Bakery', 'Equipment Rental',
+  'Manufacturing Unit', 'Textile Business', 'Repair Shop', 'Vehicle Service',
+  'Mobile Shop', 'Medical Shop', 'Pharmacy', 'Jewellery Shop',
+  'Supermarket', 'Crane & Forklift'
 ];
 
 const steps = [
@@ -70,7 +67,7 @@ export default function SetupWizardPage() {
         // Save template updates
         const templateKeys = ['invoice', 'agreement', 'receipt', 'quotation', 'purchase_order', 'delivery_challan'];
         const key = templateKeys[currentStep - 3];
-        await apiClient.put('/setup/template', { type: key, html_content: templates[key] });
+        await apiClient.put(`/setup/templates/${key}`, { name: 'Default', template_html: templates[key] });
       } else if (currentStep === 9) {
         await apiClient.post('/setup/finish');
         toast.success('ERP Activated successfully!');
@@ -248,7 +245,7 @@ export default function SetupWizardPage() {
           >
             ← Previous
           </button>
-          <button onClick={handleNext} disabled={loading} className="px-5 py-2 bg-indigo-650 hover:bg-indigo-755 text-white rounded-lg shadow">
+          <button onClick={handleNext} disabled={loading} className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow disabled:opacity-50 transition-colors duration-150">
             {loading ? 'Saving...' : currentStep === 9 ? 'Activate Workspace' : 'Next →'}
           </button>
         </div>

@@ -4,31 +4,35 @@ import {
   FiGrid, FiPackage, FiUsers, FiShoppingCart, FiDollarSign, FiSettings,
   FiFileText, FiTruck, FiTool, FiCalendar, FiBarChart2, FiLogOut, FiShield,
   FiBriefcase, FiFolder, FiFile, FiChevronLeft, FiChevronRight, FiMapPin,
-  FiUser
+  FiUser, FiLayers, FiCpu, FiBox, FiCheckCircle
 } from 'react-icons/fi';
 import { useAuth } from '../../context/AuthContext';
 import { useCompany } from '../../context/CompanyContext';
 import { SidebarContext } from '../../App';
 import { useCatalogSettings } from '../../hooks/useCatalogSettings';
+import { useManufacturingConfig, buildManufacturingMenu } from '../../hooks/useManufacturingConfig';
+import { useUiConfig } from '../../hooks/useUiConfig';
 import ThemeToggle from '../common/ThemeToggle';
 
+// Each top-level nav item is tied to a module code so the Sidebar can be
+// filtered by the company's business type (Company-Type driven gating).
 const menuItems = [
-  { path: '/dashboard',  label: 'Dashboard',     icon: FiGrid },
-  { path: '/products',   label: 'Products',       icon: FiPackage },
-  { path: '/customers',  label: 'Customers',      icon: FiUsers },
-  { path: '/suppliers',  label: 'Suppliers',      icon: FiTruck },
-  { path: '/sales',      label: 'Sales',          icon: FiShoppingCart },
-  { path: '/purchases',  label: 'Purchases',      icon: FiDollarSign },
-  { path: '/inventory',  label: 'Inventory',      icon: FiTool },
-  { path: '/equipment',  label: 'Equipment',      icon: FiTruck },
-  { path: '/rentals',    label: 'Rentals',        icon: FiCalendar },
-  { path: '/amc',        label: 'AMC Contracts',  icon: FiSettings },
-  { path: '/hr',         label: 'HR / Payroll',   icon: FiBriefcase },
-  { path: '/projects',   label: 'Projects',       icon: FiFolder },
-  { path: '/documents',  label: 'Documents',      icon: FiFile },
-  { path: '/billing',    label: 'Billing / POS',  icon: FiFileText },
-  { path: '/finance',    label: 'Finance',        icon: FiBarChart2 },
-  { path: '/reports',    label: 'Reports',        icon: FiCalendar },
+  { path: '/dashboard',  label: 'Dashboard',     icon: FiGrid,        module: 'dashboard' },
+  { path: '/products',   label: 'Products',       icon: FiPackage,     module: 'products' },
+  { path: '/customers',  label: 'Customers',      icon: FiUsers,       module: 'customers' },
+  { path: '/suppliers',  label: 'Suppliers',      icon: FiTruck,       module: 'suppliers' },
+  { path: '/sales',      label: 'Sales',          icon: FiShoppingCart, module: 'sales' },
+  { path: '/purchases',  label: 'Purchases',      icon: FiDollarSign,  module: 'purchases' },
+  { path: '/inventory',  label: 'Inventory',      icon: FiTool,        module: 'inventory' },
+  { path: '/equipment',  label: 'Equipment',      icon: FiTruck,       module: 'equipment' },
+  { path: '/rentals',    label: 'Rentals',        icon: FiCalendar,    module: 'rentals' },
+  { path: '/amc',        label: 'AMC Contracts',  icon: FiSettings,    module: 'amc' },
+  { path: '/hr',         label: 'HR / Payroll',   icon: FiBriefcase,   module: 'hr' },
+  { path: '/projects',   label: 'Projects',       icon: FiFolder,      module: 'projects' },
+  { path: '/documents',  label: 'Documents',      icon: FiFile,        module: 'documents' },
+  { path: '/billing',    label: 'Billing / POS',  icon: FiFileText,    module: 'billing' },
+  { path: '/finance',    label: 'Finance',        icon: FiBarChart2,   module: 'finance' },
+  { path: '/reports',    label: 'Reports',        icon: FiCalendar,    module: 'reports' },
 ];
 
 const adminMenuItems = [
@@ -37,10 +41,22 @@ const adminMenuItems = [
   { path: '/settings', label: 'Settings', icon: FiSettings },
 ];
 
+const manufacturingMenuItems = [
+  { path: '/manufacturing/materials',    label: 'Raw Materials', icon: FiPackage },
+  { path: '/manufacturing/purchases',    label: 'Raw Material Purchases', icon: FiDollarSign },
+  { path: '/manufacturing/bom',          label: 'BOM & Routing', icon: FiLayers },
+  { path: '/manufacturing/work-orders',  label: 'Work Orders',   icon: FiCpu },
+  { path: '/manufacturing/mrp',          label: 'MRP / Shortage', icon: FiBox },
+  { path: '/manufacturing/job-work',     label: 'Job Work',      icon: FiTruck },
+  { path: '/manufacturing/qc',           label: 'Quality Control', icon: FiCheckCircle },
+];
+
 export default function Sidebar() {
   const { logout, user } = useAuth();
   const { company, branches, selectedBranch, selectBranch } = useCompany();
   const { catalogLabel } = useCatalogSettings();
+  const { config: mfgConfig } = useManufacturingConfig();
+  const { isModuleEnabled } = useUiConfig();
   const { collapsed, setCollapsed } = useContext(SidebarContext);
 
   const navClass = (isActive) =>
@@ -136,7 +152,9 @@ export default function Sidebar() {
 
       {/* ── Navigation ── */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-        {menuItems.map((item) => {
+        {menuItems
+          .filter((item) => isModuleEnabled(item.module))
+          .map((item) => {
           const displayLabel = item.path === '/products' ? catalogLabel : item.label;
           return (
             <NavLink
@@ -150,6 +168,32 @@ export default function Sidebar() {
             </NavLink>
           );
         })}
+
+        {/* Manufacturing section (adaptive to tenant config + business type) */}
+        {isModuleEnabled('manufacturing') && (() => {
+          const mfgItems = buildManufacturingMenu(mfgConfig, manufacturingMenuItems);
+          if (mfgItems.length === 0) return null;
+          return (
+            <div className="pt-2 mt-2 border-t border-gray-700">
+              {!collapsed && (
+                <p className="px-3 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Manufacturing {mfgConfig ? `• ${mfgConfig.mfg_type}` : ''}
+                </p>
+              )}
+              {mfgItems.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  title={collapsed ? item.label : undefined}
+                  className={({ isActive }) => navClass(isActive)}
+                >
+                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  {!collapsed && <span>{item.label}</span>}
+                </NavLink>
+              ))}
+            </div>
+          );
+        })()}
 
         {/* Admin section */}
         <div className="pt-2 mt-2 border-t border-gray-700">

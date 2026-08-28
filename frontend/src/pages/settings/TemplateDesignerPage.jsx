@@ -20,7 +20,27 @@ const DOC_TYPES = [
   { value: 'delivery_challan', label: 'Delivery Challan' },
 ];
 
-const VARIABLES = ['{{company_name}}','{{company_address}}','{{company_gstin}}','{{company_phone}}','{{company_logo}}','{{invoice_number}}','{{invoice_date}}','{{due_date}}','{{customer_name}}','{{customer_address}}','{{subtotal}}','{{discount}}','{{tax_total}}','{{total}}','{{amount_in_words}}','{{items_table}}','{{signature}}','{{footer_text}}'];
+const COMPANY_VARIABLES = ['{{company_name}}', '{{company_address}}', '{{company_gstin}}', '{{company_phone}}', '{{company_logo}}', '{{signature}}', '{{footer_text}}'];
+
+const TARGET_MODULES = [
+  { value: 'products', label: 'Products' },
+  { value: 'services', label: 'Services' },
+  { value: 'rentals', label: 'Rentals' },
+  { value: 'amc_contracts', label: 'AMC Contracts' },
+  { value: 'customers', label: 'Customers' },
+  { value: 'invoices', label: 'Invoices' },
+  { value: 'raw_materials', label: 'Raw Materials' }
+];
+
+const MODULE_VARIABLES = {
+  products: ['{{product_name}}', '{{product_sku}}', '{{product_description}}', '{{selling_price}}', '{{hsn_code}}', '{{unit}}', '{{current_stock}}'],
+  services: ['{{service_name}}', '{{service_description}}', '{{hourly_rate}}', '{{daily_rate}}', '{{tax_percent}}'],
+  rentals: ['{{equipment_name}}', '{{serial_number}}', '{{rental_period}}', '{{from_date}}', '{{to_date}}', '{{duration}}', '{{rental_rate}}'],
+  amc_contracts: ['{{contract_title}}', '{{machine_name}}', '{{machine_serial}}', '{{amc_value}}', '{{start_date}}', '{{end_date}}', '{{frequency}}'],
+  customers: ['{{customer_name}}', '{{customer_phone}}', '{{customer_email}}', '{{customer_address}}', '{{customer_city}}', '{{customer_state}}', '{{customer_pincode}}', '{{customer_gstin}}'],
+  invoices: ['{{invoice_number}}', '{{invoice_date}}', '{{due_date}}', '{{subtotal}}', '{{discount}}', '{{tax_total}}', '{{total}}', '{{amount_in_words}}', '{{items_table}}'],
+  raw_materials: ['{{material_name}}', '{{material_sku}}', '{{material_description}}', '{{purchase_price}}', '{{hsn_code}}', '{{unit}}', '{{current_stock}}', '{{safety_stock}}']
+};
 
 const FONTS = ['Helvetica', 'Courier', 'Times-Roman', 'Helvetica-Bold', 'Courier-Bold', 'Times-Bold'];
 
@@ -33,6 +53,7 @@ const ELEMENT_TYPES = [
 
 export default function TemplateDesignerPage() {
   const [docType, setDocType] = useState('invoice');
+  const [targetModule, setTargetModule] = useState('invoices');
   const [elements, setElements] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [name, setName] = useState('Default');
@@ -49,6 +70,12 @@ export default function TemplateDesignerPage() {
     if (template) {
       if (template.layout_json?.elements) { setElements(template.layout_json.elements); setSaved(template.layout_json); }
       if (template.name) setName(template.name);
+      if (template.layout_json?.target_module) {
+        setTargetModule(template.layout_json.target_module);
+      } else {
+        if (docType === 'purchase_order') setTargetModule('products');
+        else setTargetModule('invoices');
+      }
     }
   }, [template, docType]);
 
@@ -82,6 +109,7 @@ export default function TemplateDesignerPage() {
 
   const handleSave = () => {
     const blueprint = { canvas_width: CANVAS_W, canvas_height: CANVAS_H,
+      target_module: targetModule,
       elements: elements.map(({ id, ...rest }) => rest) };
     saveMut.mutate({ name, layout_json: blueprint });
     setSaved(blueprint);
@@ -133,13 +161,22 @@ export default function TemplateDesignerPage() {
             ))}
           </div>
         </div>
-        <div className="flex-1 min-w-[200px]">
+        <div>
+          <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Target Module Form</label>
+          <select value={targetModule} onChange={(e) => setTargetModule(e.target.value)}
+            className="px-3 py-1.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 h-[32px] cursor-pointer">
+            {TARGET_MODULES.map((tm) => (
+              <option key={tm.value} value={tm.value}>{tm.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex-1 min-w-[150px]">
           <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Template Name</label>
           <input value={name} onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            className="w-full px-3 py-1 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 h-[32px]" />
         </div>
         <button onClick={() => setShowGrid(!showGrid)}
-          className={`px-3 py-2 rounded-lg text-sm font-semibold ${showGrid ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all h-[32px] ${showGrid ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-100 text-slate-500'}`}>
           <FiGrid className="inline mr-1" />Grid
         </button>
       </div>
@@ -194,21 +231,48 @@ export default function TemplateDesignerPage() {
             </div>
           )}
 
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-5 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-700 dark:text-white mb-3 flex items-center space-x-2">
-              <FiSettings className="w-4 h-4 text-indigo-500" /><span>Dynamic Variables</span>
-            </h3>
-            <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto">
-              {VARIABLES.map((v) => (
-                <button key={v}
-                  onClick={() => {
-                    if (selected?.type === 'text') update(selected.id, { text: (selected.text || '') + (selected.text ? ' ' : '') + v });
-                    else toast.info('Select a Text element to insert a variable');
-                  }}
-                  className="px-2 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 text-slate-500 dark:text-slate-300 rounded font-mono text-[10px]">
-                  {v}
-                </button>
-              ))}
+          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 p-5 shadow-sm space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-700 dark:text-white mb-1 flex items-center space-x-2">
+                <FiSettings className="w-4 h-4 text-indigo-500" /><span>Dynamic Variables</span>
+              </h3>
+              <p className="text-[10px] text-slate-400">Click a variable to insert it into the selected text element.</p>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Company Profile</div>
+                <div className="flex flex-wrap gap-1">
+                  {COMPANY_VARIABLES.map((v) => (
+                    <button key={v}
+                      onClick={() => {
+                        if (selected?.type === 'text') update(selected.id, { text: (selected.text || '') + (selected.text ? ' ' : '') + v });
+                        else toast.info('Select a Text element to insert a variable');
+                      }}
+                      className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-slate-500 dark:text-indigo-300 rounded font-mono text-[9px] border border-slate-200/50 dark:border-slate-800 transition-colors">
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Module Fields ({TARGET_MODULES.find((m) => m.value === targetModule)?.label})
+                </div>
+                <div className="flex flex-wrap gap-1 max-h-48 overflow-y-auto">
+                  {(MODULE_VARIABLES[targetModule] || []).map((v) => (
+                    <button key={v}
+                      onClick={() => {
+                        if (selected?.type === 'text') update(selected.id, { text: (selected.text || '') + (selected.text ? ' ' : '') + v });
+                        else toast.info('Select a Text element to insert a variable');
+                      }}
+                      className="px-1.5 py-0.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 text-indigo-650 dark:text-indigo-300 rounded font-mono text-[9px] border border-indigo-100 dark:border-indigo-900/50 transition-colors">
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 

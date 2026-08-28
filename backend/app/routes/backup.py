@@ -23,7 +23,7 @@ backup_bp = Blueprint('backup', __name__)
 
 def _current_user():
     uid = get_jwt_identity()
-    return User.query.get(int(uid)) if uid else None
+    return db.session.get(User, int(uid)) if uid else None
 
 
 # ── Helper: require superadmin ─────────────────────────────────────────────

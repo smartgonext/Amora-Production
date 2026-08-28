@@ -19,7 +19,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def get_company_logo_path(company_id):
     """Helper to get absolute path to company logo file"""
-    company = Company.query.get(company_id)
+    company = db.session.get(Company, company_id)
     if company and company.logo:
         return os.path.join(UPLOAD_FOLDER, company.logo)
     return None
@@ -32,7 +32,7 @@ def allowed_file(filename):
 def get_current_user():
     """Helper to get current user from JWT"""
     user_id = get_jwt_identity()
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 
 @companies_bp.route('', methods=['GET'])
@@ -146,7 +146,11 @@ def update_company(company_id):
             company.default_language = data['default_language']
         if 'business_type' in data:
             company.business_type = data['business_type']
-        
+            # Re-hydrate the company-type driven UI config so changing the
+            # business type in Company Settings reshapes the tenant's modules.
+            from app.services.business_type_config import seed_business_type_config
+            seed_business_type_config(user.tenant_id, company.id, data['business_type'], commit=False)
+
         company.updated_at = datetime.utcnow()
         db.session.commit()
         

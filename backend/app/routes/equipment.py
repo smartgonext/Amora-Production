@@ -12,7 +12,7 @@ equipment_bp = Blueprint('equipment_routes', __name__)
 
 def get_current_user():
     user_id = get_jwt_identity()
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 # ==================== EQUIPMENT REGISTRY ====================
 
@@ -61,7 +61,8 @@ def create_equipment():
         min_daily_rate=float(data.get('min_daily_rate', 0.00)),
         min_weekly_rate=float(data.get('min_weekly_rate', 0.00)),
         min_monthly_rate=float(data.get('min_monthly_rate', 0.00)),
-        is_active=True
+        is_active=True,
+        custom_fields=data.get('custom_fields')
     )
     db.session.add(eq)
     db.session.commit()
@@ -104,6 +105,11 @@ def create_rental():
     if not eq or eq.rental_status != 'Available':
         return jsonify({"data": None, "meta": None, "errors": ["Equipment not available for rent"]}), 400
         
+    from app.services.form_builder_service import extract_custom_fields
+    custom_fields = extract_custom_fields('rental', data)
+    if data.get('custom_fields'):
+        custom_fields.update(data['custom_fields'])
+
     booking = RentalBooking(
         tenant_id=user.tenant_id,
         company_id=user.company_id,
@@ -118,7 +124,8 @@ def create_rental():
         security_deposit=float(data.get('security_deposit', 0.00)),
         total_amount=float(rate) * 7.0, # default total estimate
         status='Active',
-        billing_status='Unbilled'
+        billing_status='Unbilled',
+        custom_fields=custom_fields
     )
     
     # Update equipment status to Rented
@@ -195,6 +202,11 @@ def create_amc():
     end = datetime.strptime(data.get('end_date', (datetime.utcnow() + timedelta(days=365)).strftime('%Y-%m-%d')), '%Y-%m-%d')
     interval = int(data.get('service_interval_days', 90))
     
+    from app.services.form_builder_service import extract_custom_fields
+    custom_fields = extract_custom_fields('amc', data)
+    if data.get('custom_fields'):
+        custom_fields.update(data['custom_fields'])
+
     contract = AMCContract(
         tenant_id=user.tenant_id,
         customer_id=cust_id,
@@ -203,7 +215,8 @@ def create_amc():
         end_date=end,
         amc_value=float(val),
         billing_frequency=data.get('billing_frequency', 'Annual'),
-        service_interval_days=interval
+        service_interval_days=interval,
+        custom_fields=custom_fields
     )
     db.session.add(contract)
     db.session.flush()

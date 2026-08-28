@@ -11,7 +11,7 @@ invoices_bp = Blueprint('invoices', __name__)
 
 def get_current_user():
     user_id = get_jwt_identity()
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 @invoices_bp.route('', methods=['GET'])
 @jwt_required()
@@ -97,16 +97,14 @@ def create_invoice():
             total_amount=line_total
         )
         invoice_items.append(inv_item)
-        
-        # Deduct product stock if product is tracked
-        if prod_id:
-            prod = Product.query.filter_by(id=prod_id, tenant_id=user.tenant_id).first()
-            if prod:
-                prod.current_stock = (prod.current_stock or 0) - int(qty)
-                db.session.add(prod)
                 
     total_amount = subtotal - discount_amount + cgst_amount + sgst_amount
     
+    from app.services.form_builder_service import extract_custom_fields
+    custom_fields = extract_custom_fields('invoice', data)
+    if data.get('custom_fields'):
+        custom_fields.update(data['custom_fields'])
+
     invoice = Invoice(
         tenant_id=user.tenant_id,
         company_id=user.company_id,
@@ -123,17 +121,73 @@ def create_invoice():
         payment_method=data.get('payment_method', 'Cash'),
         payment_status=data.get('payment_status', 'Paid'),
         is_pos=data.get('is_pos', False),
-        notes=data.get('notes')
+        notes=data.get('notes'),
+        custom_fields=custom_fields
     )
     
     # Save invoice to get ID
     db.session.add(invoice)
     db.session.flush()
     
-    # Associate items
+    # Associate items and perform batch-wise stock deduction
+    from app.models.product import ProductBatch, StockLedger
     for item in invoice_items:
         item.invoice_id = invoice.id
         db.session.add(item)
+        
+        if item.product_id:
+            prod = Product.query.filter_by(id=item.product_id, tenant_id=user.tenant_id).first()
+            if prod:
+                qty = item.quantity
+                prod.current_stock = (prod.current_stock or 0) - qty
+                db.session.add(prod)
+                
+                # FEFO: allocate from earliest-expiring batches first
+                remaining = qty
+                batches = (ProductBatch.query
+                           .filter_by(tenant_id=user.tenant_id, product_id=prod.id)
+                           .filter(ProductBatch.quantity > 0)
+                           .all())
+                batches.sort(key=lambda b: (b.expiry_date is None, b.expiry_date or datetime.max, b.id))
+                
+                for batch in batches:
+                    if remaining <= 0:
+                        break
+                    take = min(int(batch.quantity or 0), remaining)
+                    if take <= 0:
+                        continue
+                    batch.quantity = int(batch.quantity or 0) - take
+                    db.session.add(batch)
+                    
+                    db.session.add(StockLedger(
+                        tenant_id=user.tenant_id,
+                        company_id=user.company_id,
+                        product_id=prod.id,
+                        batch_id=batch.id,
+                        quantity_delta=-take,
+                        running_balance=prod.current_stock,
+                        type='Sale',
+                        reference_type='invoice',
+                        reference_id=invoice.id,
+                        rate=batch.purchase_price or 0,
+                        notes=f"Invoice {inv_num} dispatch (batch {batch.batch_no})",
+                        transaction_date=datetime.utcnow(),
+                    ))
+                    remaining -= take
+                    
+                if remaining > 0:
+                    db.session.add(StockLedger(
+                        tenant_id=user.tenant_id,
+                        company_id=user.company_id,
+                        product_id=prod.id,
+                        quantity_delta=-remaining,
+                        running_balance=prod.current_stock,
+                        type='Sale',
+                        reference_type='invoice',
+                        reference_id=invoice.id,
+                        notes=f"Invoice {inv_num} (unbatched stock)",
+                        transaction_date=datetime.utcnow(),
+                    ))
         
     db.session.commit()
     

@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useState, useEffect, useContext } from 'react';
 import { useAuth } from './context/AuthContext';
+import { useManufacturingConfig } from './hooks/useManufacturingConfig';
 import Sidebar from './components/layout/Sidebar';
 import Navbar from './components/layout/Navbar';
 import LoginPage from './pages/auth/LoginPage';
@@ -21,6 +22,17 @@ import HrPage from './pages/hr/HrPage';
 import ProjectsPage from './pages/projects/ProjectsPage';
 import DocumentsPage from './pages/documents/DocumentsPage';
 import EquipmentPage from './pages/equipment/EquipmentPage';
+import BomDesignerPage from './pages/manufacturing/BomDesigner';
+import RawMaterialsPage from './pages/manufacturing/RawMaterialsPage';
+import MrpPlanningPage from './pages/manufacturing/MrpPlanningPage';
+import WorkOrderBoard from './pages/manufacturing/WorkOrderBoard';
+import JobWorkPage from './pages/manufacturing/JobWorkPage';
+import QcInspectionPage from './pages/manufacturing/QcInspectionPage';
+import RecipeScaler from './pages/manufacturing/RecipeScaler';
+import BakePlanner from './pages/manufacturing/BakePlanner';
+import FreshReturnPage from './pages/manufacturing/FreshReturnPage';
+import BakeryQC from './pages/manufacturing/BakeryQC';
+import DayCostReport from './pages/manufacturing/DayCostReport';
 import RentalsPage from './pages/rentals/RentalsPage';
 import AmcPage from './pages/amc/AmcPage';
 import BranchesPage from './pages/branches/BranchesPage';
@@ -29,6 +41,7 @@ import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import TenantDetailPage from './pages/admin/TenantDetailPage';
 import LandingPage from './pages/LandingPage';
 import KeyboardShortcutManager from './components/common/KeyboardShortcutManager';
+import EnterToNextNav from './components/common/EnterToNextNav';
 import { Toaster } from 'react-hot-toast';
 
 // Context for sharing collapsed state between Sidebar and main layout
@@ -98,10 +111,38 @@ function P(Page) {
   );
 }
 
+function ManufacturingRoute({ children }) {
+  const { config, isLoading } = useManufacturingConfig();
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
+      </div>
+    );
+  }
+  if (!config) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+}
+
+function PM(Page) {
+  return (
+    <ProtectedRoute>
+      <ManufacturingRoute>
+        <ProtectedLayout>
+          <Page />
+        </ProtectedLayout>
+      </ManufacturingRoute>
+    </ProtectedRoute>
+  );
+}
+
 export default function App() {
   return (
     <>
       <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
+      <EnterToNextNav />
       <Routes>
         {/* Public */}
         <Route path="/" element={<LandingPage />} />
@@ -126,6 +167,18 @@ export default function App() {
         <Route path="/projects" element={P(ProjectsPage)} />
         <Route path="/documents" element={P(DocumentsPage)} />
         <Route path="/equipment" element={P(EquipmentPage)} />
+        <Route path="/manufacturing/materials" element={PM(RawMaterialsPage)} />
+        <Route path="/manufacturing/purchases" element={PM(PurchasesPage)} />
+        <Route path="/manufacturing/bom" element={PM(BomDesignerPage)} />
+        <Route path="/manufacturing/mrp" element={PM(MrpPlanningPage)} />
+        <Route path="/manufacturing/work-orders" element={PM(WorkOrderBoard)} />
+        <Route path="/manufacturing/job-work" element={PM(JobWorkPage)} />
+        <Route path="/manufacturing/qc" element={PM(QcInspectionPage)} />
+        <Route path="/manufacturing/recipe-scaler" element={PM(RecipeScaler)} />
+        <Route path="/manufacturing/bake-planner" element={PM(BakePlanner)} />
+        <Route path="/manufacturing/fresh-returns" element={PM(FreshReturnPage)} />
+        <Route path="/manufacturing/bakery-qc" element={PM(BakeryQC)} />
+        <Route path="/manufacturing/day-cost" element={PM(DayCostReport)} />
         <Route path="/rentals" element={P(RentalsPage)} />
         <Route path="/amc" element={P(AmcPage)} />
         <Route path="/settings" element={P(SettingsPage)} />

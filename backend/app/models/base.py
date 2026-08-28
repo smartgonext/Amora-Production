@@ -4,7 +4,7 @@ from app.extensions import db
 class BaseModel(db.Model):
     __abstract__ = True
     
-    id = db.Column(db.BigInteger().with_variant(db.Integer, "mysql"), primary_key=True, autoincrement=True)
+    id = db.Column(db.BigInteger().with_variant(db.Integer, "sqlite").with_variant(db.Integer, "mysql"), primary_key=True, autoincrement=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     is_deleted = db.Column(db.Boolean, default=False, nullable=False, index=True)

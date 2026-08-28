@@ -5,6 +5,7 @@ import { FiCalendar, FiPlus, FiX, FiCheck, FiArrowRight, FiInfo } from 'react-ic
 import apiClient from '../../api/client';
 import { formatINR } from '../../utils/format';
 import toast from 'react-hot-toast';
+import DynamicFormSections from '../../components/common/DynamicFormSections';
 
 export default function RentalsPage() {
   const queryClient = useQueryClient();
@@ -13,13 +14,15 @@ export default function RentalsPage() {
   const [selectedBooking, setSelectedBooking] = useState(null);
 
   // Form State - Agreement
-  const [customerId, setCustomerId] = useState('');
-  const [equipmentId, setEquipmentId] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [rate, setRate] = useState(8000);
-  const [deposit, setDeposit] = useState(15000);
-  const [address, setAddress] = useState('');
+  const [agreementForm, setAgreementForm] = useState({
+    customer_id: '',
+    equipment_id: '',
+    start_date: '',
+    end_date: '',
+    rental_rate_applied: 8000,
+    security_deposit: 15000,
+    site_address: ''
+  });
 
   // Form State - Return
   const [damageCharges, setDamageCharges] = useState(0);
@@ -95,13 +98,15 @@ export default function RentalsPage() {
   });
 
   const resetAgreementForm = () => {
-    setCustomerId('');
-    setEquipmentId('');
-    setStartDate('');
-    setEndDate('');
-    setRate(8000);
-    setDeposit(15000);
-    setAddress('');
+    setAgreementForm({
+      customer_id: '',
+      equipment_id: '',
+      start_date: '',
+      end_date: '',
+      rental_rate_applied: 8000,
+      security_deposit: 15000,
+      site_address: ''
+    });
   };
 
   const resetReturnForm = () => {
@@ -112,13 +117,11 @@ export default function RentalsPage() {
   const handleCreateAgreement = (e) => {
     e.preventDefault();
     createRentalMutation.mutate({
-      customer_id: parseInt(customerId),
-      equipment_id: parseInt(equipmentId),
-      start_date: startDate,
-      end_date: endDate,
-      rental_rate_applied: parseFloat(rate),
-      security_deposit: parseFloat(deposit),
-      site_address: address,
+      ...agreementForm,
+      customer_id: parseInt(agreementForm.customer_id),
+      equipment_id: parseInt(agreementForm.equipment_id),
+      rental_rate_applied: parseFloat(agreementForm.rental_rate_applied),
+      security_deposit: parseFloat(agreementForm.security_deposit),
       rate_type: 'Daily'
     });
   };
@@ -257,92 +260,41 @@ export default function RentalsPage() {
                 </button>
               </div>
 
-              <form onSubmit={handleCreateAgreement} className="p-6 space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-500 uppercase">Select Customer *</label>
-                  <select
-                    required
-                    value={customerId}
-                    onChange={(e) => setCustomerId(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  >
-                    <option value="">-- Choose Customer --</option>
-                    {customers.map(c => (
-                      <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-500 uppercase">Select Available Equipment *</label>
-                  <select
-                    required
-                    value={equipmentId}
-                    onChange={(e) => setEquipmentId(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  >
-                    <option value="">-- Choose Equipment --</option>
-                    {availableEquipment.map(eq => (
-                      <option key={eq.id} value={eq.id}>{eq.name} (Capacity: {eq.ton_capacity}T)</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-500 uppercase">Start Date *</label>
-                    <input
-                      type="date"
-                      required
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-500 uppercase">End Date *</label>
-                    <input
-                      type="date"
-                      required
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-500 uppercase">Daily Rental Rate (₹) *</label>
-                    <input
-                      type="number"
-                      required
-                      value={rate}
-                      onChange={(e) => setRate(parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-500 uppercase">Security Deposit (₹)</label>
-                    <input
-                      type="number"
-                      value={deposit}
-                      onChange={(e) => setDeposit(parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-500 uppercase">Delivery / Site Address</label>
-                  <input
-                    type="text"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="e.g. Sector-4 Warehouse site, Chennai"
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                  />
-                </div>
+              <form onSubmit={handleCreateAgreement} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                <DynamicFormSections
+                  entityType="rental"
+                  formData={agreementForm}
+                  onChange={(key, val) => setAgreementForm(prev => ({ ...prev, [key]: val }))}
+                  showStatic={true}
+                  customRenderers={{
+                    customer_id: (field, val, onChange) => (
+                      <select
+                        required={field.is_required}
+                        value={val}
+                        onChange={(e) => onChange(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                      >
+                        <option value="">-- Choose Customer --</option>
+                        {customers.map(c => (
+                          <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>
+                        ))}
+                      </select>
+                    ),
+                    equipment_id: (field, val, onChange) => (
+                      <select
+                        required={field.is_required}
+                        value={val}
+                        onChange={(e) => onChange(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                      >
+                        <option value="">-- Choose Equipment --</option>
+                        {availableEquipment.map(eq => (
+                          <option key={eq.id} value={eq.id}>{eq.name} (Capacity: {eq.ton_capacity}T)</option>
+                        ))}
+                      </select>
+                    )
+                  }}
+                />
 
                 <div className="p-5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end space-x-3 bg-slate-50 dark:bg-slate-800/40 -mx-6 -mb-6">
                   <button type="button" onClick={() => setIsAddOpen(false)} className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-sm">Cancel</button>

@@ -427,6 +427,7 @@ export default function CompanySettingsPage() {
               { value: 'Standard', label: 'Standard Invoice (A4/Letter)' },
               { value: 'Thermal', label: 'Thermal Receipt (3-inch / 80mm)' },
               { value: 'Sleek', label: 'Sleek Corporate Design (A4)' },
+              { value: 'Custom', label: 'Custom Designer Layout (A4 Visual)' },
             ]}
           />
           <Select
@@ -436,6 +437,7 @@ export default function CompanySettingsPage() {
               { value: 'Standard', label: 'Standard Quotation (A4)' },
               { value: 'Thermal', label: 'Thermal Quotation (3-inch / 80mm)' },
               { value: 'Sleek', label: 'Sleek Corporate Design (A4)' },
+              { value: 'Custom', label: 'Custom Designer Layout (A4 Visual)' },
             ]}
           />
         </div>

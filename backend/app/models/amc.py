@@ -14,9 +14,16 @@ class AMCContract(BaseModel):
     last_invoice_date = db.Column(db.DateTime, nullable=True)
     next_invoice_date = db.Column(db.DateTime, nullable=True)
     service_interval_days = db.Column(db.Integer, default=90)  # default quarterly service
+    custom_fields = db.Column(db.JSON, nullable=True)
 
     equipment_items = db.relationship('AMCEquipment', backref='contract', lazy=True, cascade="all, delete-orphan")
     schedules = db.relationship('AMCServiceSchedule', backref='contract', lazy=True, cascade="all, delete-orphan")
+
+    def to_dict(self):
+        data = super().to_dict()
+        if self.custom_fields and isinstance(self.custom_fields, dict):
+            data.update(self.custom_fields)
+        return data
 
 class AMCEquipment(BaseModel):
     __tablename__ = 'amc_equipment'

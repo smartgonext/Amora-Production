@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from app.extensions import db
 from app.models.user import User
 from app.services import form_builder_service
 
@@ -8,7 +9,7 @@ custom_fields_bp = Blueprint('custom_fields', __name__)
 
 def get_current_user():
     user_id = get_jwt_identity()
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 
 @custom_fields_bp.route('/schema', methods=['GET'])

@@ -9,7 +9,7 @@ projects_bp = Blueprint('projects', __name__)
 
 def get_current_user():
     user_id = get_jwt_identity()
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 @projects_bp.route('/', methods=['GET'])
 @jwt_required()

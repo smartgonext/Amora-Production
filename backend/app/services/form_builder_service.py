@@ -15,14 +15,14 @@ DEFAULT_SECTIONS = {
         {'name': 'Custom Specifications', 'order': 3}
     ],
     'rental': [
-        {'name': 'Equipment Details', 'order': 1},
-        {'name': 'Rental Rates & Deposit', 'order': 2},
-        {'name': 'Maintenance & Operational Specs', 'order': 3}
+        {'name': 'Agreement Info', 'order': 1},
+        {'name': 'Rental Timeline & Rates', 'order': 2},
+        {'name': 'Additional Rental Specs', 'order': 3}
     ],
     'amc': [
         {'name': 'Contract Info', 'order': 1},
-        {'name': 'Service Schedule & Coverage', 'order': 2},
-        {'name': 'Custom Contract Terms', 'order': 3}
+        {'name': 'Service Schedule & Details', 'order': 2},
+        {'name': 'Covered Equipment Details', 'order': 3}
     ],
     'customer': [
         {'name': 'General Information', 'order': 1},
@@ -34,6 +34,102 @@ DEFAULT_SECTIONS = {
         {'name': 'Invoice Header & Notes', 'order': 1},
         {'name': 'Additional Custom Fields', 'order': 2}
     ]
+}
+
+DEFAULT_STATIC_FIELDS = {
+    'product': {
+        'Basic Product Info': [
+            {'key': 'name', 'name': 'Product Name', 'type': 'text', 'required': True, 'width': '50%', 'order': 1},
+            {'key': 'sku', 'name': 'SKU / Code', 'type': 'text', 'required': False, 'width': '50%', 'order': 2},
+            {'key': 'description', 'name': 'Description', 'type': 'textarea', 'required': False, 'width': '100%', 'order': 3}
+        ],
+        'Pricing & Tax Details': [
+            {'key': 'purchase_price', 'name': 'Purchase Price', 'type': 'number', 'required': True, 'width': '50%', 'order': 1},
+            {'key': 'selling_price', 'name': 'Selling Price', 'type': 'number', 'required': True, 'width': '50%', 'order': 2},
+            {'key': 'gst_rate', 'name': 'GST Rate (%)', 'type': 'select', 'required': True, 'width': '50%', 'order': 3, 'options': ['0% GST', '5% GST', '12% GST', '18% GST', '28% GST']},
+            {'key': 'hsn_code', 'name': 'HSN Code', 'type': 'text', 'required': False, 'width': '50%', 'order': 4}
+        ],
+        'Inventory & Stock Specs': [
+            {'key': 'min_stock_level', 'name': 'Minimum Stock Threshold', 'type': 'number', 'required': False, 'width': '50%', 'order': 1},
+            {'key': 'opening_stock', 'name': 'Opening Stock Qty', 'type': 'number', 'required': False, 'width': '50%', 'order': 2},
+            {'key': 'is_active', 'name': 'Set Catalog Product to Active', 'type': 'checkbox', 'required': False, 'width': '100%', 'order': 3}
+        ]
+    },
+    'service': {
+        'Service Overview': [
+            {'key': 'name', 'name': 'Service Name', 'type': 'text', 'required': True, 'width': '50%', 'order': 1},
+            {'key': 'sku', 'name': 'Service Code', 'type': 'text', 'required': False, 'width': '50%', 'order': 2},
+            {'key': 'description', 'name': 'Description', 'type': 'textarea', 'required': False, 'width': '100%', 'order': 3}
+        ],
+        'Service Rates & Billing': [
+            {'key': 'purchase_price', 'name': 'Base Cost / Rate', 'type': 'number', 'required': True, 'width': '50%', 'order': 1},
+            {'key': 'selling_price', 'name': 'Service Charge / Price', 'type': 'number', 'required': True, 'width': '50%', 'order': 2},
+            {'key': 'gst_rate', 'name': 'GST Rate (%)', 'type': 'select', 'required': True, 'width': '50%', 'order': 3, 'options': ['0% GST', '5% GST', '12% GST', '18% GST', '28% GST']},
+            {'key': 'hsn_code', 'name': 'SAC Code', 'type': 'text', 'required': False, 'width': '50%', 'order': 4},
+            {'key': 'is_active', 'name': 'Active Service', 'type': 'checkbox', 'required': False, 'width': '100%', 'order': 5}
+        ]
+    },
+    'rental': {
+        'Agreement Info': [
+            {'key': 'customer_id', 'name': 'Select Customer', 'type': 'select', 'required': True, 'width': '50%', 'order': 1},
+            {'key': 'equipment_id', 'name': 'Select Available Equipment', 'type': 'select', 'required': True, 'width': '50%', 'order': 2}
+        ],
+        'Rental Timeline & Rates': [
+            {'key': 'start_date', 'name': 'Start Date', 'type': 'date', 'required': True, 'width': '50%', 'order': 1},
+            {'key': 'end_date', 'name': 'End Date', 'type': 'date', 'required': True, 'width': '50%', 'order': 2},
+            {'key': 'rental_rate_applied', 'name': 'Daily Rental Rate (₹)', 'type': 'number', 'required': True, 'width': '50%', 'order': 3},
+            {'key': 'security_deposit', 'name': 'Security Deposit (₹)', 'type': 'number', 'required': False, 'width': '50%', 'order': 4}
+        ],
+        'Additional Rental Specs': [
+            {'key': 'site_address', 'name': 'Delivery / Site Address', 'type': 'textarea', 'required': False, 'width': '100%', 'order': 1}
+        ]
+    },
+    'amc': {
+        'Contract Info': [
+            {'key': 'customer_id', 'name': 'Select Customer', 'type': 'select', 'required': True, 'width': '50%', 'order': 1},
+            {'key': 'contract_title', 'name': 'Contract Title', 'type': 'text', 'required': True, 'width': '50%', 'order': 2},
+            {'key': 'amc_value', 'name': 'Contract SLA Value (₹)', 'type': 'number', 'required': True, 'width': '100%', 'order': 3}
+        ],
+        'Service Schedule & Details': [
+            {'key': 'start_date', 'name': 'Start Date', 'type': 'date', 'required': True, 'width': '33%', 'order': 1},
+            {'key': 'end_date', 'name': 'End Date', 'type': 'date', 'required': True, 'width': '33%', 'order': 2},
+            {'key': 'service_interval_days', 'name': 'Service Visit Interval (Days)', 'type': 'select', 'required': True, 'width': '34%', 'order': 3, 'options': ['30', '90', '180', '365']}
+        ],
+        'Covered Equipment Details': [
+            {'key': 'machine_name', 'name': 'Machine Name', 'type': 'text', 'required': False, 'width': '50%', 'order': 1},
+            {'key': 'machine_serial', 'name': 'Serial / Plate Number', 'type': 'text', 'required': False, 'width': '50%', 'order': 2},
+            {'key': 'model', 'name': 'Model Number', 'type': 'text', 'required': False, 'width': '50%', 'order': 3},
+            {'key': 'capacity', 'name': 'Machine Capacity', 'type': 'text', 'required': False, 'width': '50%', 'order': 4}
+        ]
+    },
+    'customer': {
+        'General Information': [
+            {'key': 'name', 'name': 'Customer Name', 'type': 'text', 'required': True, 'width': '50%', 'order': 1},
+            {'key': 'phone', 'name': 'Phone Number', 'type': 'text', 'required': True, 'width': '50%', 'order': 2},
+            {'key': 'email', 'name': 'Email Address', 'type': 'text', 'required': False, 'width': '50%', 'order': 3},
+            {'key': 'credit_limit', 'name': 'Credit Limit (INR)', 'type': 'number', 'required': False, 'width': '50%', 'order': 4},
+            {'key': 'credit_period_days', 'name': 'Credit Period (Days)', 'type': 'number', 'required': False, 'width': '50%', 'order': 5},
+            {'key': 'is_active', 'name': 'Set Account to Active', 'type': 'checkbox', 'required': False, 'width': '100%', 'order': 6}
+        ],
+        'Contact & Address': [
+            {'key': 'address', 'name': 'Billing Address', 'type': 'text', 'required': False, 'width': '100%', 'order': 1},
+            {'key': 'city', 'name': 'City', 'type': 'text', 'required': False, 'width': '33%', 'order': 2},
+            {'key': 'state', 'name': 'State', 'type': 'text', 'required': False, 'width': '33%', 'order': 3},
+            {'key': 'pincode', 'name': 'Pincode', 'type': 'text', 'required': False, 'width': '33%', 'order': 4}
+        ],
+        'Tax & Compliance': [
+            {'key': 'gstin', 'name': 'GSTIN', 'type': 'text', 'required': False, 'width': '50%', 'order': 1},
+            {'key': 'pan', 'name': 'PAN', 'type': 'text', 'required': False, 'width': '50%', 'order': 2},
+            {'key': 'notes', 'name': 'Remarks / Notes', 'type': 'textarea', 'required': False, 'width': '100%', 'order': 3}
+        ]
+    },
+    'invoice': {
+        'Invoice Header & Notes': [
+            {'key': 'invoice_no', 'name': 'Invoice Number', 'type': 'text', 'required': True, 'width': '50%', 'order': 1},
+            {'key': 'invoice_date', 'name': 'Invoice Date', 'type': 'date', 'required': True, 'width': '50%', 'order': 2},
+            {'key': 'notes', 'name': 'Terms & Notes', 'type': 'textarea', 'required': False, 'width': '100%', 'order': 3}
+        ]
+    }
 }
 
 
@@ -56,11 +152,54 @@ def get_form_schema(tenant_id, entity_type, company_id=None):
     if not sections and entity_type in DEFAULT_SECTIONS:
         sections = seed_default_sections(tenant_id, entity_type, company_id)
 
+    # Self-healing: seed missing static fields in existing sections if none exist
+    has_any_static = False
+    for sec in sections:
+        for f in sec.fields:
+            if not f.is_deleted and f.is_static:
+                has_any_static = True
+                break
+        if has_any_static:
+            break
+
+    if not has_any_static and entity_type in DEFAULT_STATIC_FIELDS:
+        for sec in sections:
+            static_fields = DEFAULT_STATIC_FIELDS.get(entity_type, {}).get(sec.section_name, [])
+            for f in static_fields:
+                existing = CustomFormField.query.filter_by(
+                    section_id=sec.id,
+                    field_key=f['key'],
+                    is_deleted=False
+                ).first()
+                if not existing:
+                    field = CustomFormField(
+                        tenant_id=tenant_id,
+                        company_id=company_id,
+                        section_id=sec.id,
+                        field_key=f['key'],
+                        field_name=f['name'],
+                        field_type=f['type'],
+                        is_required=f['required'],
+                        is_static=True,
+                        is_active=True,
+                        width=f['width'],
+                        sort_order=f['order'],
+                        options_json=f.get('options', [])
+                    )
+                    db.session.add(field)
+        db.session.commit()
+        # Reload sections
+        sections = CustomFormSection.query.filter_by(
+            tenant_id=tenant_id,
+            entity_type=entity_type,
+            is_deleted=False
+        ).order_by(CustomFormSection.sort_order.asc()).all()
+
     return [sec.to_dict() for sec in sections]
 
 
 def seed_default_sections(tenant_id, entity_type, company_id=None):
-    """Seeds baseline form sections if none exist for a tenant"""
+    """Seeds baseline form sections and static fields if none exist for a tenant"""
     created_sections = []
     defaults = DEFAULT_SECTIONS.get(entity_type, [{'name': 'General Details', 'order': 1}])
 
@@ -73,7 +212,27 @@ def seed_default_sections(tenant_id, entity_type, company_id=None):
             sort_order=item['order']
         )
         db.session.add(sec)
+        db.session.flush()
         created_sections.append(sec)
+
+        # Seed default static fields for this section
+        static_fields = DEFAULT_STATIC_FIELDS.get(entity_type, {}).get(item['name'], [])
+        for f in static_fields:
+            field = CustomFormField(
+                tenant_id=tenant_id,
+                company_id=company_id,
+                section_id=sec.id,
+                field_key=f['key'],
+                field_name=f['name'],
+                field_type=f['type'],
+                is_required=f['required'],
+                is_static=True,
+                is_active=True,
+                width=f['width'],
+                sort_order=f['order'],
+                options_json=f.get('options', [])
+            )
+            db.session.add(field)
 
     db.session.commit()
     return created_sections
@@ -237,3 +396,34 @@ def reorder_sections_and_fields(tenant_id, entity_type, reorder_data):
 
     db.session.commit()
     return True
+
+
+def extract_custom_fields(entity_type, data):
+    """
+    Extracts all fields from `data` that are not part of the static schema for `entity_type`
+    and returns them as a dictionary for the `custom_fields` JSON column.
+    """
+    static_keys = set()
+    # Collect all static keys for this entity type
+    for section_fields in DEFAULT_STATIC_FIELDS.get(entity_type, {}).values():
+        for field in section_fields:
+            static_keys.add(field['key'])
+            
+    # Standard metadata or system fields to ignore
+    ignored_keys = {
+        'id', 'created_at', 'updated_at', 'tenant_id', 'company_id', 'branch_id',
+        'is_deleted', 'deleted_at', 'custom_fields', 'booking_number', 'total_rental_amount',
+        'damage_charges', 'total_amount', 'billing_status', 'status', 'return_condition_notes',
+        'agreement_document_url', 'invoice_number', 'invoice_date', 'due_date', 'type', 'subtotal',
+        'discount_amount', 'discount_percent', 'cgst_amount', 'sgst_amount', 'igst_amount',
+        'cess_amount', 'round_off', 'net_amount', 'payment_method', 'payment_status', 'outstanding_balance',
+        'notes', 'terms_conditions', 'is_pos', 'items', 'customer', 'equipment', 'rate_type',
+        'last_invoice_date', 'next_invoice_date', 'billing_frequency', 'start_date', 'end_date'
+    }
+    
+    custom = {}
+    for k, v in data.items():
+        if k not in static_keys and k not in ignored_keys:
+            custom[k] = v
+    return custom
+

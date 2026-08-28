@@ -142,8 +142,9 @@ def create_backup(tenant_id: int, backup_type: str = 'automatic',
         json_str = json.dumps(snapshot, default=str)
         encrypted = encrypt_payload(json_str, tenant_id)
 
-        log.encrypted_payload = encrypted
-        log.file_size = len(encrypted.encode())
+        # Encode to bytes if the column expects binary (e.g. SQLite LargeBinary)
+        log.encrypted_payload = encrypted.encode() if isinstance(encrypted, str) else encrypted
+        log.file_size = len(encrypted.encode()) if isinstance(encrypted, str) else len(encrypted)
         log.status = 'completed'
         log.completed_at = datetime.utcnow()
 
@@ -208,7 +209,10 @@ def restore_from_backup(backup_log_id: int, tenant_id: int) -> Dict[str, Any]:
     if not log.encrypted_payload:
         raise ValueError("Backup payload is missing.")
 
-    json_str = decrypt_payload(log.encrypted_payload, tenant_id)
+    payload = log.encrypted_payload
+    if isinstance(payload, bytes):
+        payload = payload.decode()
+    json_str = decrypt_payload(payload, tenant_id)
     return json.loads(json_str)
 
 

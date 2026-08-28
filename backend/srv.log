@@ -1,0 +1,5 @@
+Connecting to MySQL server at localhost:3306 to check database status...
+Database 'smartgonext_erp' already exists.
+All database tables ensured.
+ * Serving Flask app 'app'
+ * Debug mode: on

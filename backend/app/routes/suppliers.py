@@ -8,7 +8,7 @@ suppliers_bp = Blueprint('suppliers', __name__)
 
 def get_current_user():
     user_id = get_jwt_identity()
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 @suppliers_bp.route('', methods=['GET'])
 @jwt_required()
@@ -19,6 +19,11 @@ def get_suppliers():
         
     query = Supplier.query.filter_by(tenant_id=user.tenant_id, is_deleted=False)
     
+    # Optional filtering by vendor type
+    is_job_work_vendor = request.args.get('is_job_work_vendor')
+    if is_job_work_vendor is not None:
+        query = query.filter_by(is_job_work_vendor=(is_job_work_vendor.lower() == 'true'))
+        
     # Optional search query
     search = request.args.get('search')
     if search:
@@ -63,7 +68,8 @@ def create_supplier():
         bank_ifsc=data.get('bank_ifsc'),
         payment_terms=data.get('payment_terms'),
         credit_limit=data.get('credit_limit', 0.00),
-        is_active=data.get('is_active', True)
+        is_active=data.get('is_active', True),
+        is_job_work_vendor=data.get('is_job_work_vendor', False)
     )
     
     db.session.add(supplier)
@@ -91,7 +97,7 @@ def update_supplier(supplier_id):
         
     data = request.get_json() or {}
     
-    for field in ['name', 'phone', 'email', 'address', 'city', 'state', 'pincode', 'gstin', 'contact_person', 'bank_name', 'bank_account_no', 'bank_ifsc', 'payment_terms', 'credit_limit', 'is_active']:
+    for field in ['name', 'phone', 'email', 'address', 'city', 'state', 'pincode', 'gstin', 'contact_person', 'bank_name', 'bank_account_no', 'bank_ifsc', 'payment_terms', 'credit_limit', 'is_active', 'is_job_work_vendor']:
         if field in data:
             setattr(supplier, field, data[field])
             

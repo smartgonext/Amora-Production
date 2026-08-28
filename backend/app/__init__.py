@@ -1,19 +1,33 @@
 import os
-from flask import Flask, jsonify
+import logging
+from flask import Flask, jsonify, request
 from app.config import config_by_name
 from app.extensions import db, jwt, migrate, bcrypt, cors
 from app.database_setup import check_and_create_database
 
-def create_app(config_name='dev'):
-    # Check and create database automatically if it doesn't exist
-    if os.environ.get('FLASK_ENV') != 'testing':
-        try:
-            check_and_create_database()
-        except Exception as e:
-            print(f"Warning: Auto database check/creation failed: {e}. Flask-SQLAlchemy will attempt to connect anyway.")
+# Configure application logger (also capture Werkzeug request logs)
+logging.basicConfig(
+    handlers=[logging.StreamHandler()],
+    format='%(asctime)s %(levelname)s [%(name)s] %(message)s',
+    level=logging.INFO,
+)
+logger = logging.getLogger('erp')
+
+def create_app(config_name='dev', config_overrides=None):
+    cfg = config_by_name.get(config_name)
+    db_name = getattr(cfg, 'DB_NAME', None) if cfg else None
+    if config_overrides and 'DB_NAME' in config_overrides:
+        db_name = config_overrides['DB_NAME']
+        
+    try:
+        check_and_create_database(db_name)
+    except Exception as e:
+        print(f"Warning: Auto database check/creation failed: {e}. Flask-SQLAlchemy will attempt to connect anyway.")
             
     app = Flask(__name__)
     app.config.from_object(config_by_name[config_name])
+    if config_overrides:
+        app.config.update(config_overrides)
     
     # Initialize Extensions
     db.init_app(app)
@@ -52,6 +66,8 @@ def create_app(config_name='dev'):
     from app.utils.health import health_bp
     from app.routes.notifications import notifications_bp
     from app.routes.custom_fields import custom_fields_bp
+    from app.routes.manufacturing import manufacturing_bp
+    from app.routes.bakery import bakery_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
     app.register_blueprint(superadmin_bp, url_prefix='/api/v1/superadmin')
@@ -82,6 +98,8 @@ def create_app(config_name='dev'):
     app.register_blueprint(health_bp, url_prefix='/api/v1/health')
     app.register_blueprint(notifications_bp, url_prefix='/api/v1/notifications')
     app.register_blueprint(custom_fields_bp, url_prefix='/api/v1/custom-fields')
+    app.register_blueprint(manufacturing_bp, url_prefix='/api/v1/manufacturing')
+    app.register_blueprint(bakery_bp, url_prefix='/api/v1/bakery')
     
     @app.route('/')
     def index():
@@ -90,5 +108,43 @@ def create_app(config_name='dev'):
             "version": "1.0.0",
             "status": "online"
         })
-        
+
+    # ------------------------------------------------------------------
+    # Centralised error handling — always return the app's JSON envelope
+    # so a failing route never surfaces a raw HTML 500 with no detail.
+    # ------------------------------------------------------------------
+    @app.errorhandler(404)
+    def not_found(err):
+        return jsonify({
+            "data": None,
+            "meta": None,
+            "errors": ["The requested resource was not found."]
+        }), 404
+
+    @app.errorhandler(405)
+    def method_not_allowed(err):
+        return jsonify({
+            "data": None,
+            "meta": None,
+            "errors": ["The HTTP method is not allowed for this endpoint."]
+        }), 405
+
+    @app.errorhandler(500)
+    def internal_error(err):
+        db.session.rollback()
+        original = getattr(err, 'original_exception', None) or err
+        logger.error("Unhandled error -> %s: %s", request.method, request.url,
+                     exc_info=(type(original), original, original.__traceback__))
+        msg = "Internal server error."
+        if app.debug or (cfg and getattr(cfg, 'DEBUG', False)):
+            msg = f"{type(original).__name__}: {original}"
+        elif not str(err).startswith('500 Internal'):
+            # Include unexpected server-raised detail in production responses
+            msg = f"{type(original).__name__}: {original}"
+        return jsonify({
+            "data": None,
+            "meta": None,
+            "errors": [msg]
+        }), 500
+
     return app

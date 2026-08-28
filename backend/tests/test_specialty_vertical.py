@@ -8,10 +8,7 @@ def app():
     os.environ['FLASK_ENV'] = 'testing'
 
     from app import create_app
-    test_app = create_app('dev')
-    test_app.config.update({
-        'TESTING': True,
-        'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+    test_app = create_app('test', config_overrides={
         'JWT_SECRET_KEY': 'test-jwt-secret-key',
         'WTF_CSRF_ENABLED': False,
     })

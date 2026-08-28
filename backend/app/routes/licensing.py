@@ -20,7 +20,7 @@ licensing_bp = Blueprint('licensing', __name__)
 
 def get_current_user():
     user_id = get_jwt_identity()
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 
 # ============================================================
@@ -120,7 +120,13 @@ def trial_register():
         
         LicenseEvent(license_id=license.id, event_type='activated', triggered_by='system',
                      event_payload={'type': 'trial', 'days': 15}).save()
-        
+
+        # Seed company-type driven UI config for this business type.
+        from app.services.business_type_config import seed_business_type_config
+        from app.services.manufacturing_config import seed_manufacturing_config
+        seed_business_type_config(tenant.id, company.id, business_type, commit=False)
+        seed_manufacturing_config(tenant.id, business_type, commit=False)
+
         db.session.commit()
         
         from flask_jwt_extended import create_access_token, create_refresh_token
@@ -164,7 +170,7 @@ def my_subscription():
     if not subscription:
         return jsonify({"data": None, "meta": None, "errors": ["No subscription found"]}), 404
     
-    plan = SubscriptionPlan.query.get(subscription.plan_id)
+    plan = db.session.get(SubscriptionPlan, subscription.plan_id)
     licenses = License.query.filter_by(tenant_id=user.tenant_id, is_deleted=False).all()
     
     days_left = (subscription.expiry_date - datetime.utcnow()).days if subscription.expiry_date else 0
@@ -196,7 +202,7 @@ def upgrade_plan():
     if not plan_id:
         return jsonify({"data": None, "meta": None, "errors": ["Plan ID required"]}), 400
     
-    plan = SubscriptionPlan.query.get(plan_id)
+    plan = db.session.get(SubscriptionPlan, plan_id)
     if not plan or not plan.is_active or plan.is_deleted:
         return jsonify({"data": None, "meta": None, "errors": ["Invalid plan"]}), 404
     
@@ -326,7 +332,7 @@ def verify_license():
         # Register / update DeviceRegistry
         device = DeviceRegistry.query.filter_by(device_id=device_id).first()
         if not device:
-            plan = SubscriptionPlan.query.get(license.plan_id)
+            plan = db.session.get(SubscriptionPlan, license.plan_id)
             max_devices = plan.allowed_devices if plan else 1
             current = DeviceRegistry.query.filter_by(
                 tenant_id=license.tenant_id, is_active=True, is_deleted=False

@@ -10,7 +10,7 @@ customers_bp = Blueprint('customers', __name__)
 
 def get_current_user():
     user_id = get_jwt_identity()
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 # ==========================================
 # CUSTOMER ROUTES
@@ -60,6 +60,11 @@ def create_customer():
     if not data.get('name') or not data.get('phone'):
         return jsonify({"data": None, "meta": None, "errors": ["Name and Phone are required"]}), 400
         
+    from app.services.form_builder_service import extract_custom_fields
+    custom_fields = extract_custom_fields('customer', data)
+    if data.get('custom_fields'):
+        custom_fields.update(data['custom_fields'])
+        
     customer = Customer(
         tenant_id=user.tenant_id,
         company_id=user.company_id,
@@ -75,7 +80,8 @@ def create_customer():
         credit_limit=data.get('credit_limit', 0.00),
         credit_period_days=data.get('credit_period_days', 0),
         notes=data.get('notes'),
-        is_active=data.get('is_active', True)
+        is_active=data.get('is_active', True),
+        custom_fields=custom_fields
     )
     
     db.session.add(customer)
@@ -103,9 +109,16 @@ def update_customer(customer_id):
         
     data = request.get_json() or {}
     
+    from app.services.form_builder_service import extract_custom_fields
+    custom_fields = extract_custom_fields('customer', data)
+    if data.get('custom_fields'):
+        custom_fields.update(data['custom_fields'])
+        
     for field in ['name', 'phone', 'email', 'address', 'city', 'state', 'pincode', 'gstin', 'pan', 'credit_limit', 'credit_period_days', 'notes', 'is_active']:
         if field in data:
             setattr(customer, field, data[field])
+            
+    customer.custom_fields = custom_fields
             
     db.session.add(customer)
     db.session.commit()

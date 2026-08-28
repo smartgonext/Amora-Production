@@ -11,7 +11,7 @@ users_bp = Blueprint('users', __name__)
 def get_current_user():
     """Helper to get current user from JWT"""
     user_id = get_jwt_identity()
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 
 @users_bp.route('', methods=['GET'])
@@ -61,11 +61,11 @@ def list_users():
         user_dict = u.to_dict()
         user_dict['role_name'] = u.role.name if u.role else None
         if u.company_id and u.company_id not in company_cache:
-            company_cache[u.company_id] = Company.query.get(u.company_id)
+            company_cache[u.company_id] = db.session.get(Company, u.company_id)
         company = company_cache.get(u.company_id)
         user_dict['company_name'] = company.name if company else None
         if u.branch_id and u.branch_id not in branch_cache:
-            branch_cache[u.branch_id] = Branch.query.get(u.branch_id)
+            branch_cache[u.branch_id] = db.session.get(Branch, u.branch_id)
         branch = branch_cache.get(u.branch_id)
         user_dict['branch_name'] = branch.name if branch else None
         results.append(user_dict)

@@ -8,7 +8,7 @@ import { FiChevronDown, FiChevronRight } from 'react-icons/fi';
  * Renders custom sections & fields for any entity (product, service, rental, amc, customer, invoice).
  * Dropdown fields are rendered with SelectWithInlineAdd containing the '+' button to add new options on the fly.
  */
-export default function DynamicFormSections({ entityType, formData = {}, onChange }) {
+export default function DynamicFormSections({ entityType, formData = {}, onChange, showStatic = false, customRenderers = {} }) {
   const [collapsed, setCollapsed] = useState({});
 
   const { data: sections, isLoading } = useQuery({
@@ -28,7 +28,7 @@ export default function DynamicFormSections({ entityType, formData = {}, onChang
       {sections.map((section) => {
         const isCollapsed = collapsed[section.id] ?? section.is_collapsed;
         const Icon = isCollapsed ? FiChevronRight : FiChevronDown;
-        const fields = section.fields || [];
+        const fields = (section.fields || []).filter(f => showStatic || !f.is_static);
 
         if (fields.length === 0) return null;
 
@@ -71,7 +71,9 @@ export default function DynamicFormSections({ entityType, formData = {}, onChang
                         {field.is_required && <span className="text-rose-500 ml-0.5">*</span>}
                       </label>
 
-                      {['select', 'multiselect'].includes(field.field_type) ? (
+                      {customRenderers[field.field_key] ? (
+                        customRenderers[field.field_key](field, val, (v) => onChange?.(field.field_key, v))
+                      ) : ['select', 'multiselect'].includes(field.field_type) ? (
                         <SelectWithInlineAdd
                           field={field}
                           value={val}

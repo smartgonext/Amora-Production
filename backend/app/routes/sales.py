@@ -5,8 +5,9 @@ from app.models.user import User
 from app.models.sales import (
     Quotation, QuotationItem, SalesOrder, SalesOrderItem, 
     SalesReturn, SalesReturnItem, DeliveryChallan, DeliveryChallanItem,
-    Receipt, ReceiptAllocation, Invoice
+    Receipt, ReceiptAllocation, Invoice, InvoiceItem
 )
+from app.models.product import Product, ProductBatch, StockLedger
 from datetime import datetime
 import uuid
 
@@ -14,7 +15,7 @@ sales_bp = Blueprint('sales', __name__)
 
 def get_current_user():
     user_id = get_jwt_identity()
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 # --- Quotations Endpoints ---
 @sales_bp.route('/quotations', methods=['GET'])
@@ -259,3 +260,174 @@ def create_receipt():
 
     db.session.commit()
     return jsonify({"data": receipt.to_dict(), "errors": None}), 201
+
+
+# ---------------------------------------------------------------------------
+# Quotation → Invoice conversion (finished-goods stock deduction w/ batch)
+# ---------------------------------------------------------------------------
+def _sell_finished_stock(tenant_id, company_id, product_id, qty, invoice_id, invoice_number):
+    """Deduct sold finished-product stock with FIFO (FEFO) batch allocation.
+
+    Every deduction posts a StockLedger 'Sale' movement referencing the invoice
+    so the whole movement is traceable to its source transaction.
+    """
+    qty = int(qty)
+    if qty <= 0:
+        return
+    product = Product.query.filter_by(id=int(product_id), tenant_id=tenant_id).first()
+    if not product or int(product.current_stock or 0) < qty:
+        raise ValueError(
+            f"Insufficient finished stock for product #{product_id} "
+            f"(available {int(product.current_stock or 0)}, required {qty})"
+        )
+
+    product.current_stock = int(product.current_stock or 0) - qty
+    db.session.add(product)
+
+    remaining = qty
+    # FEFO: allocate from earliest-expiring batches first, then oldest.
+    batches = (ProductBatch.query
+               .filter_by(tenant_id=tenant_id, product_id=int(product_id))
+               .filter(ProductBatch.quantity > 0)
+               .all())
+    batches.sort(key=lambda b: (b.expiry_date is None, b.expiry_date or datetime.max, b.id))
+
+    for batch in batches:
+        if remaining <= 0:
+            break
+        take = min(int(batch.quantity or 0), remaining)
+        if take <= 0:
+            continue
+        batch.quantity = int(batch.quantity or 0) - take
+        db.session.add(batch)
+        db.session.add(StockLedger(
+            tenant_id=tenant_id,
+            company_id=company_id,
+            product_id=int(product_id),
+            batch_id=batch.id,
+            quantity_delta=-take,
+            running_balance=int(product.current_stock or 0),
+            type='Sale',
+            reference_type='invoice',
+            reference_id=invoice_id,
+            rate=batch.purchase_price or 0,
+            notes=f"Invoice {invoice_number} dispatch (batch {batch.batch_no})",
+            transaction_date=datetime.utcnow(),
+        ))
+        remaining -= take
+
+    if remaining > 0:
+        # No batch rows left (un-tracked / opened stock) — log the remainder.
+        db.session.add(StockLedger(
+            tenant_id=tenant_id,
+            company_id=company_id,
+            product_id=int(product_id),
+            quantity_delta=-remaining,
+            running_balance=int(product.current_stock or 0),
+            type='Sale',
+            reference_type='invoice',
+            reference_id=invoice_id,
+            notes=f"Invoice {invoice_number} (unbatched stock)",
+            transaction_date=datetime.utcnow(),
+        ))
+
+
+@sales_bp.route('/quotations/<int:quotation_id>/convert-to-invoice', methods=['POST'])
+@jwt_required()
+def convert_quotation_to_invoice(quotation_id):
+    """Convert a saved quotation into a GST invoice without re-entering data.
+
+    Carries forward customer, product, qty, rate, tax and totals from the
+    quotation, marks the quotation as Converted and deducts finished-product
+    stock (with batch allocation) when the sale is dispatched/confirmed.
+    """
+    user = get_current_user()
+    if not user:
+        return jsonify({"data": None, "errors": ["User not found"]}), 404
+
+    quote = Quotation.query.filter_by(
+        id=int(quotation_id), tenant_id=user.tenant_id, is_deleted=False).first()
+    if not quote:
+        return jsonify({"data": None, "errors": ["Quotation not found"]}), 404
+    if quote.converted_to_invoice_id:
+        return jsonify({
+            "data": None,
+            "errors": [f"Already converted (invoice #{quote.converted_to_invoice_id})"],
+        }), 400
+
+    items = QuotationItem.query.filter_by(
+        quotation_id=quote.id, tenant_id=user.tenant_id, is_deleted=False).all()
+    if not items:
+        return jsonify({"data": None, "errors": ["Quotation has no items"]}), 400
+
+    data = request.get_json() or {}
+    inv_num = data.get('invoice_number') or f"INV-{uuid.uuid4().hex[:8].upper()}"
+    payment_method = data.get('payment_method') or 'Credit'
+    payment_status = data.get('payment_status') or 'Unpaid'
+    net_amount = float(data.get('net_amount') or quote.total_amount or 0)
+
+    invoice = Invoice(
+        tenant_id=user.tenant_id,
+        company_id=data.get('company_id') or quote.company_id,
+        branch_id=quote.branch_id,
+        customer_id=quote.customer_id,
+        invoice_number=inv_num,
+        invoice_date=datetime.utcnow(),
+        type='Sales',
+        subtotal=quote.subtotal,
+        discount_amount=quote.discount_amount,
+        discount_percent=quote.discount_percent,
+        cgst_amount=quote.cgst_amount,
+        sgst_amount=quote.sgst_amount,
+        igst_amount=quote.igst_amount,
+        total_amount=quote.total_amount,
+        net_amount=net_amount,
+        payment_method=payment_method,
+        payment_status=payment_status,
+        outstanding_balance=net_amount if payment_status != 'Paid' else 0,
+        notes=quote.notes,
+        terms_conditions=quote.terms_conditions,
+        is_pos=False,
+    )
+    db.session.add(invoice)
+    db.session.flush()
+
+    for item in items:
+        db.session.add(InvoiceItem(
+            tenant_id=user.tenant_id,
+            invoice_id=invoice.id,
+            product_id=item.product_id,
+            description=item.description,
+            hsn_code=_hsn_code(user.tenant_id, item.product_id),
+            quantity=item.quantity,
+            rate=item.rate,
+            discount_percent=item.discount_percent,
+            discount_amount=item.discount_amount,
+            gst_rate=item.gst_rate,
+            cgst_amount=item.cgst_amount,
+            sgst_amount=item.sgst_amount,
+            total_amount=item.total_amount,
+        ))
+        # Dispatch/confirm — deduct finished stock for trackable products.
+        if item.product_id:
+            _sell_finished_stock(user.tenant_id, user.company_id,
+                                 item.product_id, item.quantity,
+                                 invoice.id, inv_num)
+
+    quote.status = 'Converted'
+    quote.converted_to_invoice_id = invoice.id
+    db.session.add(quote)
+    db.session.commit()
+
+    invoice_data = invoice.to_dict()
+    invoice_data['items'] = [i.to_dict() for i in InvoiceItem.query
+                             .filter_by(invoice_id=invoice.id).all()]
+    return jsonify({"data": invoice_data, "errors": None}), 201
+
+
+def _hsn_code(tenant_id, product_id):
+    """Best-effort HSN lookup for an invoice line (may be None)."""
+    if not product_id:
+        return None
+    prod = db.session.get(Product, int(product_id))
+    return getattr(prod, 'hsn_code', None) if prod else None

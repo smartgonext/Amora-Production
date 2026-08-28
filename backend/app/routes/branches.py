@@ -11,7 +11,7 @@ branches_bp = Blueprint('branches', __name__)
 def get_current_user():
     """Helper to get current user from JWT"""
     user_id = get_jwt_identity()
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
 
 
 @branches_bp.route('', methods=['GET'])

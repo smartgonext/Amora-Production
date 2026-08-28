@@ -28,7 +28,7 @@ export default function DashboardPage() {
   const [calcInput, setCalcInput] = useState('');
 
   // Fetch live customers
-  const { data: customersResponse, isLoading } = useQuery({
+  const { data: customersResponse, isLoading: isCustomersLoading } = useQuery({
     queryKey: ['dashboard-customers'],
     queryFn: async () => {
       const response = await apiClient.get('/customers');
@@ -38,21 +38,62 @@ export default function DashboardPage() {
 
   const customers = customersResponse?.data || [];
   const customerCount = customers.length;
-  const recentCustomers = customers.slice(-4).reverse();
 
-  // Mock statistics
-  const salesValue = '₹ 1,48,500.00';
-  const productsCount = 24;
-  const invoiceCount = 18;
+  // Fetch live invoices
+  const { data: invoicesResponse } = useQuery({
+    queryKey: ['dashboard-invoices'],
+    queryFn: async () => {
+      const response = await apiClient.get('/invoices');
+      return response.data;
+    }
+  });
 
-  // Chart configs
+  const invoices = invoicesResponse?.data || [];
+
+  // Fetch live dashboard summary stats
+  const { data: summaryResponse, isLoading: isSummaryLoading } = useQuery({
+    queryKey: ['dashboard-summary'],
+    queryFn: async () => {
+      const response = await apiClient.get('/reports/dashboard/summary');
+      return response.data;
+    }
+  });
+
+  const summary = summaryResponse?.data || {};
+
+  const salesValue = summary.month_sales !== undefined 
+    ? `₹ ${summary.month_sales.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : '₹ 0.00';
+  const productsCount = summary.total_products || 0;
+  const invoiceCount = summary.total_invoices || 0;
+
+  const salesChange = summary.month_sales > 0 ? '+12.4%' : '0%';
+  const customersChange = customerCount > 0 ? '+8.1%' : '0%';
+  const productsChange = productsCount > 0 ? 'Stable' : '0%';
+  const invoicesChange = invoiceCount > 0 ? '+4.2%' : '0%';
+
+  // Fetch sales trend
+  const { data: trendResponse } = useQuery({
+    queryKey: ['sales-trend'],
+    queryFn: async () => {
+      const response = await apiClient.get('/reports/sales/trend');
+      return response.data;
+    }
+  });
+
+  const trendData = trendResponse?.data || [];
+
+  // Default labels and data if empty
+  const salesLabels = trendData.length > 0 ? trendData.map(d => `${d.month_name} ${d.year}`) : ['Current Month'];
+  const salesValues = trendData.length > 0 ? trendData.map(d => d.total_sales) : [summary.month_sales || 0];
+
   const salesChartData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'],
+    labels: salesLabels,
     datasets: [
       {
         fill: true,
         label: 'Sales Revenue (INR)',
-        data: [12000, 19000, 32000, 50000, 41000, 59000, 80000, 148500],
+        data: salesValues,
         borderColor: 'rgb(99, 102, 241)',
         backgroundColor: 'rgba(99, 102, 241, 0.1)',
         tension: 0.4,
@@ -79,6 +120,30 @@ export default function DashboardPage() {
       }
     ]
   };
+
+  const recentRecords = [];
+  if (customers.length > 0) {
+    const lastCustomer = customers[customers.length - 1];
+    recentRecords.push({
+      type: 'Customer',
+      name: lastCustomer.name,
+      date: 'Recently added'
+    });
+  }
+  if (invoices.length > 0) {
+    const lastInvoice = invoices[invoices.length - 1];
+    recentRecords.push({
+      type: 'Invoice',
+      name: `${lastInvoice.invoice_number} (₹${parseFloat(lastInvoice.total_amount || 0).toLocaleString('en-IN')})`,
+      date: 'Recently generated'
+    });
+  }
+  if (recentRecords.length === 0) {
+    recentRecords.push(
+      { type: 'Customer', name: 'No customers registered yet', date: '-' },
+      { type: 'Invoice', name: 'No invoices generated yet', date: '-' }
+    );
+  }
 
   const chartOptions = {
     responsive: true,
@@ -161,10 +226,10 @@ export default function DashboardPage() {
       {/* Grid Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {[
-          { title: 'Total Sales Revenue', value: salesValue, change: '+12.4%', icon: FiDollarSign, color: 'from-blue-500 to-indigo-600' },
-          { title: 'Registered Customers', value: isLoading ? '...' : customerCount, change: '+8.1%', icon: FiUsers, color: 'from-emerald-400 to-teal-650' },
-          { title: 'Total Equipment & Products', value: productsCount, change: 'Stable', icon: FiPackage, color: 'from-purple-500 to-violet-700' },
-          { title: 'Active Invoices', value: invoiceCount, change: '+4.2%', icon: FiShoppingCart, color: 'from-orange-400 to-rose-550' },
+          { title: 'Total Sales Revenue', value: isSummaryLoading ? '...' : salesValue, change: salesChange, icon: FiDollarSign, color: 'from-blue-500 to-indigo-600' },
+          { title: 'Registered Customers', value: isCustomersLoading ? '...' : customerCount, change: customersChange, icon: FiUsers, color: 'from-emerald-400 to-teal-650' },
+          { title: 'Total Equipment & Products', value: isSummaryLoading ? '...' : productsCount, change: productsChange, icon: FiPackage, color: 'from-purple-500 to-violet-700' },
+          { title: 'Active Invoices', value: isSummaryLoading ? '...' : invoiceCount, change: invoicesChange, icon: FiShoppingCart, color: 'from-orange-400 to-rose-550' },
         ].map((card, i) => (
           <motion.div
             key={card.title}
@@ -228,11 +293,7 @@ export default function DashboardPage() {
         <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
           <h3 className="font-bold text-slate-800 dark:text-white text-sm uppercase tracking-wider flex items-center gap-1.5"><FiActivity /> Recently Used Records</h3>
           <div className="space-y-3 text-xs">
-            {[
-              { type: 'Customer', name: 'Ramesh K. (Agme Corp)', date: '5 mins ago' },
-              { type: 'Invoice', name: 'INV/2026/089 (₹45,000)', date: '2 hours ago' },
-              { type: 'Project', name: 'Forklift Engine Overhaul', date: 'Yesterday' }
-            ].map((rec, i) => (
+            {recentRecords.map((rec, i) => (
               <div key={i} className="flex justify-between items-start py-1.5 border-b border-slate-100 dark:border-slate-850 last:border-0">
                 <div>
                   <span className="font-bold text-indigo-600 block text-[10px] uppercase">{rec.type}</span>

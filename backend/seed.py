@@ -11,7 +11,15 @@ from app.models.hr import Employee
 from app.models.project import Project
 from app.models.document import Document
 from app.models.finance import ChartOfAccount
+from decimal import Decimal
+from app.models.manufacturing import (
+    TenantManufacturingConfig, BomHeader, BomItem, BomByproduct,
+    WorkCenter, Machine, BomRoutingOperation, SupplierItemMapping,
+    MaterialRequirementPlan, WorkOrder, WorkOrderOperation,
+    ProductionMaterialIssue, QualityInspection, JobWorkOrder,
+)
 from app.database_setup import check_and_create_database
+from app.services.template_initializer import seed_default_templates
 
 def seed_database():
     # Create the Flask application context
@@ -60,7 +68,7 @@ def seed_database():
         demo_tenant = Tenant.query.filter_by(subdomain='demo').first()
         if not demo_tenant:
             print("Seeding Demo Tenant and Admin User...")
-            demo_tenant = Tenant(name="SmartGo ERP Demo", subdomain="demo", business_type="Heavy Equipment & Services")
+            demo_tenant = Tenant(name="SmartGo ERP Demo", subdomain="demo", business_type="Universal ERP")
             db.session.add(demo_tenant)
             db.session.flush()
             
@@ -81,14 +89,19 @@ def seed_database():
             # Company
             company = Company(
                 tenant_id=demo_tenant.id,
-                name="SmartGo Services & Rentals",
+                name="SmartGo Universal Enterprise",
                 email="info@smartgoservices.com",
                 phone="9988776655",
-                business_type="Services & Rentals",
+                business_type="Universal ERP",
                 is_head_office=True
             )
             db.session.add(company)
             db.session.flush()
+            
+            # Seed default visual templates & UI config
+            seed_default_templates(demo_tenant.id, company.id, commit=False)
+            from app.services.business_type_config import seed_business_type_config
+            seed_business_type_config(demo_tenant.id, company.id, 'Universal ERP', commit=False)
             
             # Branches
             branches_data = [
@@ -194,16 +207,16 @@ def seed_database():
             
             # Products
             products_data = [
-                {"name": "Hydraulic Excavator Bucket", "sku": "HEB-001", "category": "Construction Equipment", "brand": "Caterpillar", "unit": "Pieces", "hsn_code": "8431", "purchase_price": 450000, "selling_price": 550000, "gst_rate": 18, "current_stock": 5, "min_stock_level": 2},
-                {"name": "JCB 3DX Backhoe Loader", "sku": "JCB-3DX", "category": "Construction Equipment", "brand": "JCB", "unit": "Pieces", "hsn_code": "8429", "purchase_price": 2800000, "selling_price": 3500000, "gst_rate": 18, "current_stock": 3, "min_stock_level": 1},
-                {"name": "Hydraulic Oil 20L", "sku": "HO-20L", "category": "Lubricants", "brand": "Bosch", "unit": "Liters", "hsn_code": "2710", "purchase_price": 3200, "selling_price": 4200, "gst_rate": 18, "current_stock": 50, "min_stock_level": 10},
-                {"name": "Engine Oil 5L", "sku": "EO-5L", "category": "Lubricants", "brand": "Bosch", "unit": "Liters", "hsn_code": "2710", "purchase_price": 1200, "selling_price": 1600, "gst_rate": 18, "current_stock": 100, "min_stock_level": 20},
-                {"name": "Safety Helmet", "sku": "SH-001", "category": "Safety Gear", "brand": "Bosch", "unit": "Pieces", "hsn_code": "6506", "purchase_price": 350, "selling_price": 550, "gst_rate": 12, "current_stock": 200, "min_stock_level": 50},
-                {"name": "Safety Vest (High Visibility)", "sku": "SV-001", "category": "Safety Gear", "brand": "Bosch", "unit": "Pieces", "hsn_code": "6210", "purchase_price": 180, "selling_price": 299, "gst_rate": 12, "current_stock": 150, "min_stock_level": 30},
-                {"name": "Steel-toe Boots", "sku": "STB-001", "category": "Safety Gear", "brand": "Bosch", "unit": "Pair", "hsn_code": "6403", "purchase_price": 1200, "selling_price": 1899, "gst_rate": 12, "current_stock": 80, "min_stock_level": 15},
-                {"name": "Crane Hook 10 Ton", "sku": "CH-10T", "category": "Spare Parts", "brand": "Komatsu", "unit": "Pieces", "hsn_code": "8431", "purchase_price": 8500, "selling_price": 12500, "gst_rate": 18, "current_stock": 15, "min_stock_level": 5},
-                {"name": "Hydraulic Filter Kit", "sku": "HFK-001", "category": "Spare Parts", "brand": "Tata Hitachi", "unit": "Set", "hsn_code": "8421", "purchase_price": 2200, "selling_price": 3500, "gst_rate": 18, "current_stock": 40, "min_stock_level": 10},
-                {"name": "Welding Electrode 5kg Box", "sku": "WE-5KG", "category": "Tools", "brand": "Bosch", "unit": "Box", "hsn_code": "8311", "purchase_price": 650, "selling_price": 999, "gst_rate": 18, "current_stock": 60, "min_stock_level": 15},
+                {"name": "Hydraulic Excavator Bucket", "sku": "HEB-001", "category": "Construction Equipment", "brand": "Caterpillar", "unit": "Pieces", "hsn_code": "8431", "purchase_price": 450000, "selling_price": 550000, "gst_rate": 18, "current_stock": 5, "min_stock_level": 2, "is_raw_material": False},
+                {"name": "JCB 3DX Backhoe Loader", "sku": "JCB-3DX", "category": "Construction Equipment", "brand": "JCB", "unit": "Pieces", "hsn_code": "8429", "purchase_price": 2800000, "selling_price": 3500000, "gst_rate": 18, "current_stock": 3, "min_stock_level": 1, "is_raw_material": False},
+                {"name": "Hydraulic Oil 20L", "sku": "HO-20L", "category": "Lubricants", "brand": "Bosch", "unit": "Liters", "hsn_code": "2710", "purchase_price": 3200, "selling_price": 4200, "gst_rate": 18, "current_stock": 50, "min_stock_level": 10, "is_raw_material": False},
+                {"name": "Engine Oil 5L", "sku": "EO-5L", "category": "Lubricants", "brand": "Bosch", "unit": "Liters", "hsn_code": "2710", "purchase_price": 1200, "selling_price": 1600, "gst_rate": 18, "current_stock": 100, "min_stock_level": 20, "is_raw_material": False},
+                {"name": "Safety Helmet", "sku": "SH-001", "category": "Safety Gear", "brand": "Bosch", "unit": "Pieces", "hsn_code": "6506", "purchase_price": 350, "selling_price": 550, "gst_rate": 12, "current_stock": 200, "min_stock_level": 50, "is_raw_material": False},
+                {"name": "Safety Vest (High Visibility)", "sku": "SV-001", "category": "Safety Gear", "brand": "Bosch", "unit": "Pieces", "hsn_code": "6210", "purchase_price": 180, "selling_price": 299, "gst_rate": 12, "current_stock": 150, "min_stock_level": 30, "is_raw_material": False},
+                {"name": "Steel-toe Boots", "sku": "STB-001", "category": "Safety Gear", "brand": "Bosch", "unit": "Pair", "hsn_code": "6403", "purchase_price": 1200, "selling_price": 1899, "gst_rate": 12, "current_stock": 80, "min_stock_level": 15, "is_raw_material": False},
+                {"name": "Crane Hook 10 Ton", "sku": "CH-10T", "category": "Spare Parts", "brand": "Komatsu", "unit": "Pieces", "hsn_code": "8431", "purchase_price": 8500, "selling_price": 0, "gst_rate": 18, "current_stock": 15, "min_stock_level": 5, "is_raw_material": True},
+                {"name": "Hydraulic Filter Kit", "sku": "HFK-001", "category": "Spare Parts", "brand": "Tata Hitachi", "unit": "Set", "hsn_code": "8421", "purchase_price": 2200, "selling_price": 0, "gst_rate": 18, "current_stock": 40, "min_stock_level": 10, "is_raw_material": True},
+                {"name": "Welding Electrode 5kg Box", "sku": "WE-5KG", "category": "Tools", "brand": "Bosch", "unit": "Box", "hsn_code": "8311", "purchase_price": 650, "selling_price": 0, "gst_rate": 18, "current_stock": 60, "min_stock_level": 15, "is_raw_material": True},
             ]
             product_map = {}
             for p_data in products_data:
@@ -222,6 +235,7 @@ def seed_database():
                     current_stock=p_data['current_stock'],
                     opening_stock=p_data['current_stock'],
                     min_stock_level=p_data['min_stock_level'],
+                    is_raw_material=p_data.get('is_raw_material', False),
                     is_active=True
                 )
                 db.session.add(prod)
@@ -274,6 +288,7 @@ def seed_database():
                 {"name": "Bosch Auto Parts", "phone": "9988776613", "email": "parts@bosch.in", "address": "Bengaluru, Karnataka", "city": "Bengaluru", "state": "Karnataka", "gstin": "29BOSCHCORP3K4", "credit_limit": 1000000, "payment_terms": "30 days"},
                 {"name": "Shell Lubricants", "phone": "9988776614", "email": "lubricants@shell.com", "address": "Gurugram, Haryana", "city": "Gurugram", "state": "Haryana", "gstin": "06SHELLOIL4P8", "credit_limit": 800000, "payment_terms": "45 days"},
                 {"name": "Cummins India", "phone": "9988776615", "email": "info@cummins.com", "address": "Pune, Maharashtra", "city": "Pune", "state": "Maharashtra", "gstin": "27CUMMINSIN5R2", "credit_limit": 3000000, "payment_terms": "60 days"},
+                {"name": "Precision Job Works & Fabricators", "phone": "9988776616", "email": "jobwork@precision.com", "address": "Chakan MIDC, Pune", "city": "Pune", "state": "Maharashtra", "gstin": "27PRECISION1Z5", "credit_limit": 500000, "payment_terms": "30 days", "is_job_work_vendor": True},
             ]
             for s_data in suppliers_data:
                 supplier = Supplier(
@@ -450,8 +465,225 @@ def seed_database():
                     )
                     db.session.add(account)
             
+            # ===== MANUFACTURING SEEDING =====
+            print("Seeding Manufacturing Engine...")
+            
+            # 1. Config
+            mfg_config = TenantManufacturingConfig.query.filter_by(tenant_id=demo_tenant.id).first()
+            if not mfg_config:
+                mfg_config = TenantManufacturingConfig(
+                    tenant_id=demo_tenant.id,
+                    mfg_type='hybrid',
+                    bom_label='BOM & Recipe',
+                    tracking_label='Serial / Batch Number',
+                    operation_label='Routing / Process Step',
+                    enabled_features=[
+                        'routing', 'mrp', 'work_orders', 'quality_control', 'job_work',
+                        'baker_pct_scaling', 'freshness', 'fefo', 'haccp', 'qc', 'batch_tracking',
+                        'subcontracting', 'baking_plan', 'fresh_returns', 'day_cost'
+                    ],
+                    is_active=True
+                )
+                db.session.add(mfg_config)
+                db.session.flush()
+
+            # 2. Work Centers & Machines
+            wc1 = WorkCenter.query.filter_by(tenant_id=demo_tenant.id, name='Assembly Line 1').first()
+            if not wc1:
+                wc1 = WorkCenter(
+                    tenant_id=demo_tenant.id,
+                    name='Assembly Line 1',
+                    hourly_labor_rate=Decimal('15.00'),
+                    hourly_machine_rate=Decimal('25.00'),
+                    capacity_limit=100,
+                    is_active=True
+                )
+                db.session.add(wc1)
+            
+            wc2 = WorkCenter.query.filter_by(tenant_id=demo_tenant.id, name='Fabrication Shop').first()
+            if not wc2:
+                wc2 = WorkCenter(
+                    tenant_id=demo_tenant.id,
+                    name='Fabrication Shop',
+                    hourly_labor_rate=Decimal('20.00'),
+                    hourly_machine_rate=Decimal('30.00'),
+                    capacity_limit=80,
+                    is_active=True
+                )
+                db.session.add(wc2)
+            db.session.flush()
+
+            m1 = Machine.query.filter_by(tenant_id=demo_tenant.id, name='CNC Cutting Machine').first()
+            if not m1:
+                m1 = Machine(
+                    tenant_id=demo_tenant.id,
+                    work_center_id=wc2.id,
+                    name='CNC Cutting Machine',
+                    hourly_machine_rate=Decimal('35.00'),
+                    is_active=True
+                )
+                db.session.add(m1)
+
+            m2 = Machine.query.filter_by(tenant_id=demo_tenant.id, name='Rotary Assembly Jig').first()
+            if not m2:
+                m2 = Machine(
+                    tenant_id=demo_tenant.id,
+                    work_center_id=wc1.id,
+                    name='Rotary Assembly Jig',
+                    hourly_machine_rate=Decimal('20.00'),
+                    is_active=True
+                )
+                db.session.add(m2)
+            db.session.flush()
+
+            # 3. BOM & Routing
+            fg_prod = product_map.get("Hydraulic Excavator Bucket")
+            comp1 = product_map.get("Crane Hook 10 Ton")
+            comp2 = product_map.get("Hydraulic Filter Kit")
+            comp3 = product_map.get("Welding Electrode 5kg Box")
+            
+            if fg_prod and comp1 and comp2 and comp3:
+                bom = BomHeader.query.filter_by(tenant_id=demo_tenant.id, product_id=fg_prod.id).first()
+                if not bom:
+                    bom = BomHeader(
+                        tenant_id=demo_tenant.id,
+                        company_id=company.id,
+                        product_id=fg_prod.id,
+                        name="Excavator Bucket Standard BOM",
+                        version="V1.0",
+                        revision_no=0,
+                        status="active",
+                        standard_cost=Decimal('15000.00'),
+                        overhead_cost=Decimal('1200.00'),
+                        total_setup_time_mins=30,
+                        notes="Standard fabrication and welding BOM for excavator bucket assembly."
+                    )
+                    db.session.add(bom)
+                    db.session.flush()
+                    
+                    # Components
+                    item1 = BomItem(bom_id=bom.id, item_id=comp1.id, qty_required=Decimal('1.00'), uom="Pcs", waste_pct=Decimal('0.00'))
+                    item2 = BomItem(bom_id=bom.id, item_id=comp2.id, qty_required=Decimal('2.00'), uom="Set", waste_pct=Decimal('5.00'))
+                    item3 = BomItem(bom_id=bom.id, item_id=comp3.id, qty_required=Decimal('1.00'), uom="Box", waste_pct=Decimal('10.00'))
+                    db.session.add_all([item1, item2, item3])
+                    
+                    # Routing
+                    op1 = BomRoutingOperation(
+                        bom_id=bom.id, operation_sequence=10, operation_name="Metal Cutting & Shaping",
+                        work_center_id=wc2.id, machine_id=m1.id, setup_time_mins=15,
+                        processing_time_per_unit_mins=Decimal('20.00'), labor_hours_per_unit=Decimal('0.50')
+                    )
+                    op2 = BomRoutingOperation(
+                        bom_id=bom.id, operation_sequence=20, operation_name="Welding & Structural Assembly",
+                        work_center_id=wc2.id, machine_id=None, setup_time_mins=10,
+                        processing_time_per_unit_mins=Decimal('45.00'), labor_hours_per_unit=Decimal('1.00')
+                    )
+                    op3 = BomRoutingOperation(
+                        bom_id=bom.id, operation_sequence=30, operation_name="Final Assembly & Quality Check",
+                        work_center_id=wc1.id, machine_id=m2.id, setup_time_mins=5,
+                        processing_time_per_unit_mins=Decimal('15.00'), labor_hours_per_unit=Decimal('0.25')
+                    )
+                    db.session.add_all([op1, op2, op3])
+                    db.session.flush()
+
+                    # Supplier mappings
+                    supplier = Supplier.query.filter_by(tenant_id=demo_tenant.id).first()
+                    if supplier:
+                        map1 = SupplierItemMapping(tenant_id=demo_tenant.id, supplier_id=supplier.id, item_id=comp1.id, lead_time_days=3, unit_cost=Decimal('8000.00'))
+                        map2 = SupplierItemMapping(tenant_id=demo_tenant.id, supplier_id=supplier.id, item_id=comp2.id, lead_time_days=5, unit_cost=Decimal('2000.00'))
+                        map3 = SupplierItemMapping(tenant_id=demo_tenant.id, supplier_id=supplier.id, item_id=comp3.id, lead_time_days=2, unit_cost=Decimal('600.00'))
+                        db.session.add_all([map1, map2, map3])
+                        db.session.flush()
+
+                    # 4. Work Orders
+                    wo1 = WorkOrder(
+                        tenant_id=demo_tenant.id, company_id=company.id, bom_id=bom.id,
+                        wo_number="WO-2026-001", planned_qty=Decimal('5.00'), produced_qty=Decimal('0.00'),
+                        status="planned", start_date=date.today(), end_date=date.today() + timedelta(days=2)
+                    )
+                    wo2 = WorkOrder(
+                        tenant_id=demo_tenant.id, company_id=company.id, bom_id=bom.id,
+                        wo_number="WO-2026-002", planned_qty=Decimal('10.00'), produced_qty=Decimal('0.00'),
+                        status="wip", start_date=date.today() - timedelta(days=1), end_date=date.today() + timedelta(days=1)
+                    )
+                    wo3 = WorkOrder(
+                        tenant_id=demo_tenant.id, company_id=company.id, bom_id=bom.id,
+                        wo_number="WO-2026-003", planned_qty=Decimal('3.00'), produced_qty=Decimal('3.00'),
+                        status="qc_pending", start_date=date.today() - timedelta(days=2), end_date=date.today()
+                    )
+                    wo4 = WorkOrder(
+                        tenant_id=demo_tenant.id, company_id=company.id, bom_id=bom.id,
+                        wo_number="WO-2026-004", planned_qty=Decimal('2.00'), produced_qty=Decimal('2.00'),
+                        status="completed", start_date=date.today() - timedelta(days=5), end_date=date.today() - timedelta(days=3)
+                    )
+                    db.session.add_all([wo1, wo2, wo3, wo4])
+                    db.session.flush()
+
+                    # Operations for WO-2026-002
+                    wo_op1 = WorkOrderOperation(
+                        work_order_id=wo2.id, operation_sequence=10, operation_name="Metal Cutting & Shaping",
+                        work_center_id=wc2.id, machine_id=m1.id, planned_setup_time=15, planned_run_time=200,
+                        actual_setup_time=15, actual_run_time=190, status="completed"
+                    )
+                    wo_op2 = WorkOrderOperation(
+                        work_order_id=wo2.id, operation_sequence=20, operation_name="Welding & Structural Assembly",
+                        work_center_id=wc2.id, machine_id=None, planned_setup_time=10, planned_run_time=450,
+                        actual_setup_time=0, actual_run_time=0, status="in_progress"
+                    )
+                    wo_op3 = WorkOrderOperation(
+                        work_order_id=wo2.id, operation_sequence=30, operation_name="Final Assembly & Quality Check",
+                        work_center_id=wc1.id, machine_id=m2.id, planned_setup_time=5, planned_run_time=150,
+                        actual_setup_time=0, actual_run_time=0, status="pending"
+                    )
+                    db.session.add_all([wo_op1, wo_op2, wo_op3])
+                    db.session.flush()
+
+                    # 5. MRP / Shortage
+                    mrp1 = MaterialRequirementPlan(
+                        tenant_id=demo_tenant.id, work_order_id=wo1.id,
+                        raw_material_id=comp1.id, required_qty=Decimal('5.00'), current_stock_qty=Decimal('15.00'),
+                        shortage_qty=Decimal('0.00'), status="draft"
+                    )
+                    mrp2 = MaterialRequirementPlan(
+                        tenant_id=demo_tenant.id, work_order_id=wo1.id,
+                        raw_material_id=comp2.id, required_qty=Decimal('10.50'), current_stock_qty=Decimal('5.00'),
+                        shortage_qty=Decimal('5.50'), status="draft"
+                    )
+                    db.session.add_all([mrp1, mrp2])
+                    db.session.flush()
+
+                    # 6. Job Work
+                    if supplier:
+                        jw1 = JobWorkOrder(
+                            tenant_id=demo_tenant.id, company_id=company.id, vendor_id=supplier.id,
+                            work_order_id=wo2.id, issue_challan_no="JW-CH-2026-001",
+                            status="sent", expected_return_date=date.today() + timedelta(days=7),
+                            service_cost=Decimal('3500.00'),
+                            materials_sent=[
+                                {"item_id": comp1.id, "qty": 10, "uom": "Pcs"},
+                                {"item_id": comp2.id, "qty": 20, "uom": "Set"}
+                            ]
+                        )
+                        db.session.add(jw1)
+                        db.session.flush()
+
+                    # 7. Quality Control
+                    qc1 = QualityInspection(
+                        tenant_id=demo_tenant.id, company_id=company.id,
+                        reference_type="work_order", reference_id=wo4.id,
+                        inspection_date=datetime.now() - timedelta(days=3),
+                        passed_qty=Decimal('2.00'), failed_qty=Decimal('0.00'),
+                        qc_status="passed", remarks="All standard tolerances and weld penetrations checked and approved.",
+                        check_parameters=[
+                            {"name": "Dimension Check", "standard": "Width 1200mm +/- 5mm", "actual": "1202mm", "result": "pass"},
+                            {"name": "Weld Quality", "standard": "Continuous bead, no cracks", "actual": "Excellent penetration", "result": "pass"}
+                        ]
+                    )
+                    db.session.add(qc1)
+                    db.session.flush()
+
             db.session.commit()
-            print("Demo tenant & ERP comprehensive data seeded successfully for all modules!")
+            print("Demo tenant & ERP comprehensive data seeded successfully for all modules, including Manufacturing!")
         
         print("Master database seeded successfully.")
 

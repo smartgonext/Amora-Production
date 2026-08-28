@@ -1,0 +1,25 @@
+2026-08-18 12:01:29,266 INFO [werkzeug] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.137.182:5000
+2026-08-18 12:01:29,267 INFO [werkzeug] [33mPress CTRL+C to quit[0m
+2026-08-18 12:01:29,269 INFO [werkzeug]  * Restarting with stat
+2026-08-18 12:01:31,303 WARNING [werkzeug]  * Debugger is active!
+2026-08-18 12:01:31,308 INFO [werkzeug]  * Debugger PIN: 729-210-044
+2026-08-18 12:02:15,619 INFO [werkzeug] 127.0.0.1 - - [18/Aug/2026 12:02:15] "GET /api/v1/notifications HTTP/1.1" 200 -
+2026-08-18 12:03:05,195 INFO [werkzeug] 127.0.0.1 - - [18/Aug/2026 12:03:05] "GET /api/v1/notifications HTTP/1.1" 200 -
+2026-08-18 12:03:06,397 INFO [werkzeug] 127.0.0.1 - - [18/Aug/2026 12:03:06] "GET /api/v1/manufacturing/config HTTP/1.1" 200 -
+2026-08-18 12:03:06,467 INFO [werkzeug] 127.0.0.1 - - [18/Aug/2026 12:03:06] "GET /api/v1/suppliers?search= HTTP/1.1" 200 -
+2026-08-18 12:03:06,887 INFO [werkzeug] 127.0.0.1 - - [18/Aug/2026 12:03:06] "GET /api/v1/purchases?search= HTTP/1.1" 200 -
+2026-08-18 12:03:06,903 INFO [werkzeug] 127.0.0.1 - - [18/Aug/2026 12:03:06] "GET /api/v1/purchases/grn HTTP/1.1" 200 -
+2026-08-18 12:03:06,952 INFO [werkzeug] 127.0.0.1 - - [18/Aug/2026 12:03:06] "GET /api/v1/suppliers HTTP/1.1" 200 -
+2026-08-18 12:03:06,967 INFO [werkzeug] 127.0.0.1 - - [18/Aug/2026 12:03:06] "GET /api/v1/purchases/returns HTTP/1.1" 200 -
+2026-08-18 12:03:07,904 INFO [werkzeug] 127.0.0.1 - - [18/Aug/2026 12:03:07] "GET /api/v1/products?search=&is_raw_material=false HTTP/1.1" 200 -
+2026-08-18 12:03:33,331 INFO [werkzeug] 127.0.0.1 - - [18/Aug/2026 12:03:33] "GET /api/v1/notifications HTTP/1.1" 200 -
+2026-08-18 12:04:03,385 INFO [werkzeug] 127.0.0.1 - - [18/Aug/2026 12:04:03] "GET /api/v1/notifications HTTP/1.1" 200 -
+2026-08-18 12:05:04,323 INFO [werkzeug] 127.0.0.1 - - [18/Aug/2026 12:05:04] "GET /api/v1/notifications HTTP/1.1" 200 -
+2026-08-18 12:06:05,320 INFO [werkzeug] 127.0.0.1 - - [18/Aug/2026 12:06:05] "GET /api/v1/notifications HTTP/1.1" 200 -
+2026-08-18 12:07:06,321 INFO [werkzeug] 127.0.0.1 - - [18/Aug/2026 12:07:06] "GET /api/v1/notifications HTTP/1.1" 200 -
+2026-08-18 12:08:07,321 INFO [werkzeug] 127.0.0.1 - - [18/Aug/2026 12:08:07] "GET /api/v1/notifications HTTP/1.1" 200 -
+2026-08-18 12:09:08,317 INFO [werkzeug] 127.0.0.1 - - [18/Aug/2026 12:09:08] "GET /api/v1/notifications HTTP/1.1" 200 -
+2026-08-18 12:10:09,328 INFO [werkzeug] 127.0.0.1 - - [18/Aug/2026 12:10:09] "GET /api/v1/notifications HTTP/1.1" 200 -

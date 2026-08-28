@@ -6,6 +6,9 @@ from app.extensions import db
 from app.models.tenant import Tenant, Subscription, SubscriptionPlan, Company, License
 from app.models.user import User, Role, Permission, LoginHistory, UserSession
 from app.utils.security import rate_limit, write_audit_log, validate_password_strength
+from app.services.manufacturing_config import seed_manufacturing_config
+from app.services.template_initializer import seed_default_templates
+from app.services.business_type_config import seed_business_type_config
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -121,6 +124,17 @@ def register():
         )
         db.session.add(license)
         
+        # 7. Seed manufacturing engine config based on the selected industry.
+        #    No-ops unless the business type is a manufacturing industry.
+        seed_manufacturing_config(tenant.id, business_type, commit=False)
+        
+        # 8. Seed default document templates for the Visual Template Designer.
+        seed_default_templates(tenant.id, company.id, commit=False)
+
+        # 9. Seed the company-type driven UI config (which modules/features are
+        #    shown for this business type). Stored in CompanySetting rows.
+        seed_business_type_config(tenant.id, company.id, business_type, commit=False)
+
         db.session.commit()
         
         # 7. Generate tokens
@@ -207,7 +221,7 @@ def login():
     # Get company details with logo
     from app.models.tenant import Company
     company_data = None
-    company = Company.query.get(user.company_id) if user.company_id else None
+    company = db.session.get(Company, user.company_id) if user.company_id else None
     if company:
         company_data = {
             "id": company.id,
@@ -250,7 +264,7 @@ def login():
 @jwt_required(refresh=True)
 def refresh():
     identity = get_jwt_identity()
-    user = User.query.get(int(identity))
+    user = db.session.get(User, int(identity))
     if not user or not user.is_active or user.is_deleted:
         return jsonify({"data": None, "meta": None, "errors": ["Invalid session or deactivated account."]}), 401
         
@@ -272,7 +286,7 @@ def refresh():
 @jwt_required()
 def me():
     user_id = get_jwt_identity()
-    user = User.query.get(int(user_id))
+    user = db.session.get(User, int(user_id))
     if not user or user.is_deleted:
         return jsonify({"data": None, "meta": None, "errors": ["User not found."]}), 404
     
@@ -280,7 +294,7 @@ def me():
     
     # Add company details with logo
     from app.models.tenant import Company
-    company = Company.query.get(user.company_id) if user.company_id else None
+    company = db.session.get(Company, user.company_id) if user.company_id else None
     if company:
         user_dict['company'] = {
             "id": company.id,
@@ -319,7 +333,7 @@ def select_branch():
     branch_id = data.get('branch_id')
     
     user_id = get_jwt_identity()
-    user = User.query.get(int(user_id))
+    user = db.session.get(User, int(user_id))
     
     if not user or user.is_deleted:
         return jsonify({"data": None, "meta": None, "errors": ["User not found."]}), 404

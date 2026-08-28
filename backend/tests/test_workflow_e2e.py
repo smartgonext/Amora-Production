@@ -54,9 +54,7 @@ def app():
     os.environ['FLASK_ENV'] = 'testing'
 
     from app import create_app
-    test_app = create_app('dev')   # MySQL database (no SQLite anywhere)
-    test_app.config.update({
-        'TESTING': True,
+    test_app = create_app('test', config_overrides={
         'JWT_SECRET_KEY': 'test-jwt-secret-key-workflow',
         'JWT_ACCESS_TOKEN_EXPIRES': False,
         'JWT_REFRESH_TOKEN_EXPIRES': False,

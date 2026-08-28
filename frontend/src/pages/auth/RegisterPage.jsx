@@ -5,14 +5,19 @@ import { FiLayers, FiAlertCircle } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 
 const BUSINESS_TYPES = [
-  'Retail Shop', 'Wholesale Distribution', 'Restaurant', 'Cafe', 'Bakery',
-  'Spa', 'Salon', 'Equipment Rental', 'Hospital', 'Clinic',
-  'School', 'College', 'Apartment Management', 'Hostel Management',
-  'Hotel', 'Lodge', 'Manufacturing Unit', 'Textile Business',
-  'Finance', 'Microfinance', 'Construction', 'Repair Shop',
-  'Vehicle Service', 'Mobile Shop', 'Medical Shop', 'Pharmacy',
-  'Jewellery Shop', 'Supermarket', 'Crane & Forklift'
+  'Retail Shop', 'Wholesale Distribution', 'Bakery', 'Equipment Rental',
+  'Manufacturing Unit', 'Textile Business', 'Repair Shop', 'Vehicle Service',
+  'Mobile Shop', 'Medical Shop', 'Pharmacy', 'Jewellery Shop',
+  'Supermarket', 'Crane & Forklift'
 ];
+
+// Mirrors backend's BUSINESS_TYPE_MFG_PROFILES so the registration form can show
+// exactly which manufacturing engine config will be seeded for the selection.
+const MFG_PROFILES = {
+  'Manufacturing Unit': { mfg_type: 'discrete', label: 'Multi-level BOM', features: 'routing, serial tracking, subcontracting, job work, auto-PO' },
+  'Textile Business': { mfg_type: 'textile', label: 'Variant Matrix', features: 'routing, lot tracking, size/color matrix, job work, auto-PO' },
+  'Bakery': { mfg_type: 'process', label: 'Recipe / Yield', features: 'batch production, expiry tracking, QC' },
+};
 
 export default function RegisterPage() {
   const { register } = useAuth();
@@ -123,6 +128,14 @@ export default function RegisterPage() {
                     <option value="" className="text-slate-600">Select type</option>
                     {BUSINESS_TYPES.map(bt => <option key={bt} value={bt} className="text-slate-800">{bt}</option>)}
                   </select>
+
+                  {MFG_PROFILES[form.business_type] && (
+                    <div className="mt-2 p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300">
+                      <p className="font-bold mb-1">Manufacturing engine: {MFG_PROFILES[form.business_type].mfg_type}</p>
+                      <p>BOM type: <span className="font-semibold">{MFG_PROFILES[form.business_type].label}</span></p>
+                      <p className="text-indigo-300/80">Features: {MFG_PROFILES[form.business_type].features}</p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="sm:col-span-2 space-y-1.5">

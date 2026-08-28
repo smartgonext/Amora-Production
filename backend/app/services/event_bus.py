@@ -66,13 +66,13 @@ def handle_invoice_created(tenant_id=None, entity_id=None, payload=None):
     from app.models.sales import Invoice, InvoiceItem
     from app.models.customer import CustomerLedger
 
-    invoice = Invoice.query.get(entity_id)
+    invoice = db.session.get(Invoice, entity_id)
     if not invoice:
         return {'status': 'error', 'message': 'Invoice not found'}
 
     # 1. Update customer purchase stats
     from app.models.customer import Customer
-    customer = Customer.query.get(invoice.customer_id)
+    customer = db.session.get(Customer, invoice.customer_id)
     if customer:
         customer.total_purchases = (customer.total_purchases or 0) + invoice.net_amount
         customer.purchase_count = (customer.purchase_count or 0) + 1
@@ -112,7 +112,7 @@ def handle_invoice_created(tenant_id=None, entity_id=None, payload=None):
 
             # Update product stock
             from app.models.product import Product
-            product = Product.query.get(item.product_id)
+            product = db.session.get(Product, item.product_id)
             if product:
                 product.current_stock = max(0, (product.current_stock or 0) - item.quantity)
                 db.session.add(product)
@@ -123,7 +123,7 @@ def handle_invoice_created(tenant_id=None, entity_id=None, payload=None):
     for item in invoice.items.all():
         if item.product_id:
             from app.models.product import Product
-            product = Product.query.get(item.product_id)
+            product = db.session.get(Product, item.product_id)
             if product and product.current_stock <= product.min_stock_level:
                 EventBus.emit(
                     'stock.low',
@@ -141,13 +141,13 @@ def handle_invoice_paid(tenant_id=None, entity_id=None, payload=None):
     """Automation: Update invoice status when paid"""
     from app.models.sales import Invoice, Receipt, ReceiptAllocation
 
-    receipt = Receipt.query.get(entity_id)
+    receipt = db.session.get(Receipt, entity_id)
     if not receipt:
         return {'status': 'error'}
 
     # Update allocations and invoice payment status
     for alloc in receipt.allocations.all():
-        invoice = Invoice.query.get(alloc.invoice_id)
+        invoice = db.session.get(Invoice, alloc.invoice_id)
         if invoice:
             invoice.outstanding_balance = max(0, (invoice.outstanding_balance or invoice.net_amount) - alloc.amount)
             if invoice.outstanding_balance <= 0:
@@ -183,12 +183,12 @@ def handle_stock_low(tenant_id=None, entity_id=None, payload=None):
 def handle_payment_overdue(tenant_id=None, entity_id=None, payload=None):
     """Automation: Notify about overdue payments"""
     from app.models.sales import Invoice
-    invoice = Invoice.query.get(entity_id)
+    invoice = db.session.get(Invoice, entity_id)
     if not invoice:
         return {'status': 'error'}
 
     from app.models.customer import Customer
-    customer = Customer.query.get(invoice.customer_id)
+    customer = db.session.get(Customer, invoice.customer_id)
     customer_name = customer.name if customer else 'Unknown'
 
     notification = Notification(
@@ -208,7 +208,7 @@ def handle_payment_overdue(tenant_id=None, entity_id=None, payload=None):
 def handle_customer_birthday(tenant_id=None, entity_id=None, payload=None):
     """Automation: Send birthday wishes"""
     from app.models.customer import Customer
-    customer = Customer.query.get(entity_id)
+    customer = db.session.get(Customer, entity_id)
     if not customer:
         return {'status': 'error'}
 
@@ -246,12 +246,12 @@ def handle_subscription_expiring(tenant_id=None, entity_id=None, payload=None):
 def handle_rental_return_due(tenant_id=None, entity_id=None, payload=None):
     """Automation: Notify about upcoming rental return"""
     from app.models.equipment import RentalBooking
-    booking = RentalBooking.query.get(entity_id)
+    booking = db.session.get(RentalBooking, entity_id)
     if not booking:
         return {'status': 'error'}
 
     from app.models.customer import Customer
-    customer = Customer.query.get(booking.customer_id)
+    customer = db.session.get(Customer, booking.customer_id)
 
     notification = Notification(
         tenant_id=tenant_id,
@@ -270,7 +270,7 @@ def handle_rental_return_due(tenant_id=None, entity_id=None, payload=None):
 def handle_amc_expiring(tenant_id=None, entity_id=None, payload=None):
     """Automation: Notify about AMC contract expiry"""
     from app.models.amc import AMCContract
-    contract = AMCContract.query.get(entity_id)
+    contract = db.session.get(AMCContract, entity_id)
     if not contract:
         return {'status': 'error'}
 
@@ -291,12 +291,12 @@ def handle_amc_expiring(tenant_id=None, entity_id=None, payload=None):
 def handle_amc_service_due(tenant_id=None, entity_id=None, payload=None):
     """Automation: Notify about scheduled AMC service"""
     from app.models.amc import AMCServiceSchedule
-    visit = AMCServiceSchedule.query.get(entity_id)
+    visit = db.session.get(AMCServiceSchedule, entity_id)
     if not visit:
         return {'status': 'error'}
 
     from app.models.amc import AMCContract
-    contract = AMCContract.query.get(visit.amc_id)
+    contract = db.session.get(AMCContract, visit.amc_id)
 
     notification = Notification(
         tenant_id=tenant_id,

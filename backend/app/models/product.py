@@ -40,14 +40,29 @@ class Product(BaseModel):
     is_serial_tracked = db.Column(db.Boolean, default=False)
     is_batch_tracked = db.Column(db.Boolean, default=False)
     is_service = db.Column(db.Boolean, default=False, nullable=False)
+    is_raw_material = db.Column(db.Boolean, default=False, nullable=False)
+    # Bakery / food product attributes (only meaningful when is_fresh or a
+    # finished bakery item). Stored on the product so labels & FEFO can use them.
+    shelf_life_days = db.Column(db.Integer, nullable=True)
+    best_before_days = db.Column(db.Integer, nullable=True)
+    is_fresh = db.Column(db.Boolean, default=False, nullable=False)
+    allergens = db.Column(db.JSON, nullable=True)      # e.g. ["Gluten", "Milk", "Egg"]
+    nutrition = db.Column(db.JSON, nullable=True)      # e.g. {"energy_kcal": 265, "protein_g": 9}
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     description = db.Column(db.Text, nullable=True)
+    custom_fields = db.Column(db.JSON, nullable=True)
     
     barcodes = db.relationship('ProductBarcode', backref='product', lazy='dynamic', cascade="all, delete-orphan")
     variants = db.relationship('ProductVariant', backref='product', lazy='dynamic', cascade="all, delete-orphan")
     batches = db.relationship('ProductBatch', backref='product', lazy='dynamic', cascade="all, delete-orphan")
     images = db.relationship('ProductImage', backref='product', lazy='dynamic', cascade="all, delete-orphan")
     ledger_entries = db.relationship('StockLedger', backref='product', lazy='dynamic')
+
+    def to_dict(self):
+        data = super().to_dict()
+        if self.custom_fields and isinstance(self.custom_fields, dict):
+            data.update(self.custom_fields)
+        return data
 
 
 class Brand(BaseModel):
@@ -212,10 +227,18 @@ class GoodsReceiptNote(BaseModel):
     received_date = db.Column(db.DateTime, nullable=False)
     supplier_invoice_no = db.Column(db.String(50), nullable=True)
     supplier_invoice_date = db.Column(db.DateTime, nullable=True)
+    gate_entry_no = db.Column(db.String(30), nullable=True)     # Gate Entry / Inward register no
+    vehicle_no = db.Column(db.String(20), nullable=True)        # Lorry / truck registration, e.g. TN-37-AB-1234
+    lr_no = db.Column(db.String(50), nullable=True)             # Lorry Receipt no
     notes = db.Column(db.Text, nullable=True)
-    status = db.Column(db.String(20), default='Draft')  # Draft, Completed, Cancelled
-    
+    status = db.Column(db.String(20), default='pending_qc')  # pending_qc, approved, rejected, partial, Draft, Completed, Cancelled
+
     items = db.relationship('GRNItem', backref='grn', lazy='dynamic', cascade="all, delete-orphan")
+
+    def to_dict(self):
+        data = super().to_dict()
+        data['items'] = [i.to_dict() for i in self.items if not i.is_deleted]
+        return data
 
 
 class GRNItem(BaseModel):
@@ -230,6 +253,9 @@ class GRNItem(BaseModel):
     accepted_quantity = db.Column(db.Integer, nullable=False)
     rejected_quantity = db.Column(db.Integer, default=0)
     rejection_reason = db.Column(db.String(255), nullable=True)
+    batch_no = db.Column(db.String(50), nullable=True)        # Raw material batch identifier
+    mfg_date = db.Column(db.Date, nullable=True)
+    expiry_date = db.Column(db.Date, nullable=True)
 
 
 class PurchaseReturn(BaseModel):

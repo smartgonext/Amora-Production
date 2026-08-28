@@ -5,6 +5,7 @@ Automatically filters queries by branch_id when user has selected a branch.
 from functools import wraps
 from flask import request, g
 from flask_jwt_extended import get_jwt, get_jwt_identity
+from app.extensions import db
 from app.models.user import User
 
 
@@ -24,7 +25,7 @@ def get_current_user():
     """Get current user from JWT identity"""
     try:
         user_id = get_jwt_identity()
-        return User.query.get(int(user_id))
+        return db.session.get(User, int(user_id))
     except:
         return None
 

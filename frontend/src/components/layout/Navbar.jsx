@@ -3,11 +3,13 @@ import { FiSearch, FiBell, FiShoppingCart, FiLogOut, FiSettings, FiPackage, FiCh
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { SidebarContext } from '../../App';
+import { useManufacturingConfig } from '../../hooks/useManufacturingConfig';
 import apiClient from '../../api/client';
 
 export default function Navbar() {
   const { collapsed } = useContext(SidebarContext);
   const { user, logout } = useAuth();
+  const { config: mfgConfig } = useManufacturingConfig();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -180,6 +182,18 @@ export default function Navbar() {
 
       {/* RIGHT SIDE — Profile, Notifications, Alerts, Bills */}
       <div className="flex items-center gap-1">
+        {/* Manufacturing mode indicator (adaptive to tenant config) */}
+        {mfgConfig && (
+          <Link
+            to="/manufacturing/bom"
+            className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-xs font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
+            title={`Enabled: ${(mfgConfig.enabled_features || []).join(', ')}`}
+          >
+            <FiSettings className="text-sm" />
+            {mfgConfig.operation_label || mfgConfig.mfg_type} mode
+          </Link>
+        )}
+
         {/* Low Stock Warning */}
         {lowStockAlerts > 0 && (
           <Link

@@ -28,7 +28,7 @@ superadmin_bp = Blueprint('superadmin', __name__)
 
 def _require_superadmin():
     uid = get_jwt_identity()
-    user = User.query.get(int(uid)) if uid else None
+    user = db.session.get(User, int(uid)) if uid else None
     if not user or not user.is_superadmin:
         return None, (jsonify({"data": None, "meta": None,
                                "errors": ["Superadmin access required."]}), 403)
@@ -64,7 +64,7 @@ def _tenant_summary(tenant):
 
     plan_name = days_remaining = expiry_date = None
     if sub:
-        plan = SubscriptionPlan.query.get(sub.plan_id)
+        plan = db.session.get(SubscriptionPlan, sub.plan_id)
         plan_name = plan.name if plan else None
         if sub.expiry_date:
             expiry_date = sub.expiry_date.isoformat()
@@ -317,7 +317,7 @@ def extend_expiry(tenant_id):
             lic.status = 'active'
         _emit_license_event(lic.id, 'expiry_extended',
                             {'days': days, 'new_expiry': new_expiry.isoformat(), 'admin_id': admin.id})
-    tenant = Tenant.query.get(tenant_id)
+    tenant = db.session.get(Tenant, tenant_id)
     if tenant and not tenant.is_active:
         tenant.is_active = True
         tenant.db_status = 'active'

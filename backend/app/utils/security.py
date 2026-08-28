@@ -16,7 +16,7 @@ from functools import wraps
 from datetime import datetime
 from typing import Optional
 
-from flask import request, jsonify
+from flask import request, jsonify, current_app
 
 # ---------------------------------------------------------------------------
 # Input sanitisation
@@ -117,6 +117,8 @@ def rate_limit(max_calls: int = 60, window_seconds: int = 60):
     def decorator(fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):
+            if current_app.config.get('TESTING') and not current_app.config.get('RATELIMIT_ENABLED'):
+                return fn(*args, **kwargs)
             ip  = request.remote_addr or 'unknown'
             key = f"{ip}:{request.endpoint}"
             now = time.monotonic()

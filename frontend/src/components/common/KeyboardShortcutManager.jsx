@@ -90,6 +90,7 @@ export default function KeyboardShortcutManager() {
                 <input
                   ref={inputRef}
                   type="text"
+                  data-enter-submit="true"
                   placeholder="Type a command or module name..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
