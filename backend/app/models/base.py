@@ -10,6 +10,10 @@ class BaseModel(db.Model):
     is_deleted = db.Column(db.Boolean, default=False, nullable=False, index=True)
     deleted_at = db.Column(db.DateTime, nullable=True)
 
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
     def soft_delete(self):
         """Soft delete the record"""
         self.is_deleted = True

@@ -25,9 +25,9 @@ def register_device():
     
     device = DeviceRegistry(
         tenant_id=user.tenant_id,
-        device_uuid=data.get('device_uuid'),
+        device_id=data.get('device_uuid') or data.get('device_id'),
         device_name=data.get('device_name'),
-        os_version=data.get('os_version'),
+        os_info=data.get('os_version') or data.get('os_info'),
         is_active=True
     )
     db.session.add(device)

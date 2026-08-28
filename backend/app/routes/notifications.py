@@ -91,7 +91,7 @@ def mark_all_read():
         Notification.tenant_id == user.tenant_id,
         Notification.is_read == False,
         ((Notification.user_id == user.id) | (Notification.company_id == None))
-    ).update({"is_read": True, "read_at": datetime.utcnow()})
+    ).update({"is_read": True})
     db.session.commit()
 
     return jsonify({"data": {"success": True}, "errors": None}), 200

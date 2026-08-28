@@ -7,6 +7,7 @@ from app.models.tenant import Company, CompanySetting, NumberSeries
 from app.models.template import (TaxSetting, InvoiceTemplate, AgreementTemplate,
                                   ReceiptTemplate, QuotationTemplate,
                                   PurchaseOrderTemplate, DeliveryChallanTemplate)
+from app.utils.default_templates import DEFAULT_BLUEPRINTS
 
 setup_bp = Blueprint('setup', __name__)
 
@@ -110,12 +111,16 @@ def manage_template(doc_type):
     if request.method == 'GET':
         template = model_class.query.filter_by(company_id=user.company_id, is_deleted=False).first()
         if not template:
-            # Return default template structure
+            # Return default template structure (always non-empty so the
+            # designer canvas is never blank). Companies can still change it.
+            builder = DEFAULT_BLUEPRINTS.get(doc_type)
+            layout_json = builder() if builder else {"canvas_width": 595, "canvas_height": 842, "elements": []}
             return jsonify({
                 "data": {
                     "doc_type": doc_type,
                     "name": "Default",
                     "template_html": None,
+                    "layout_json": layout_json,
                     "is_default": True,
                     "settings": {}
                 },

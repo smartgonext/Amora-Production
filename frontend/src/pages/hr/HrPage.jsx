@@ -31,6 +31,14 @@ export default function HrPage() {
   const [attendStatus, setAttendStatus] = useState('Present');
   const [attendNotes, setAttendNotes] = useState('Daily log');
 
+  // Form State - Attendance Matrix & Bulk Actions
+  const today = new Date();
+  const [selectedMonth, setSelectedMonth] = useState(today.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(today.getFullYear());
+  const [selectedDept, setSelectedDept] = useState('');
+  const [bulkDate, setBulkDate] = useState(today.toISOString().split('T')[0]);
+  const [attendanceViewMode, setAttendanceViewMode] = useState('grid');
+
   // Form State - Leave
   const [leaveEmpId, setLeaveEmpId] = useState('');
   const [leaveType, setLeaveType] = useState('Casual');
@@ -54,6 +62,18 @@ export default function HrPage() {
     }
   });
   const employees = employeesResponse?.data || [];
+
+  // Fetch Monthly Attendance Matrix
+  const { data: monthlyAttResponse, isLoading: isLoadingMonthlyAtt } = useQuery({
+    queryKey: ['monthly-attendance', selectedYear, selectedMonth, selectedDept],
+    queryFn: async () => {
+      const response = await apiClient.get('/hr/attendance/monthly', {
+        params: { year: selectedYear, month: selectedMonth, department: selectedDept || undefined }
+      });
+      return response.data;
+    }
+  });
+  const monthlyData = monthlyAttResponse?.data;
 
   // Fetch Attendance logs
   const { data: attendanceResponse, isLoading: isLoadingAttend } = useQuery({
@@ -102,9 +122,58 @@ export default function HrPage() {
       setIsAttendOpen(false);
       resetAttendanceForm();
       queryClient.invalidateQueries({ queryKey: ['attendance-logs'] });
+      queryClient.invalidateQueries({ queryKey: ['monthly-attendance'] });
     },
     onError: (err) => {
       toast.error(err.response?.data?.errors?.[0] || 'Failed to log attendance');
+    }
+  });
+
+  const bulkMarkDateMutation = useMutation({
+    mutationFn: async (payload) => {
+      const response = await apiClient.post('/hr/attendance/bulk', payload);
+      return response.data;
+    },
+    onSuccess: (res) => {
+      toast.success(`Marked all employees Present for ${res.data?.date || bulkDate}`);
+      queryClient.invalidateQueries({ queryKey: ['monthly-attendance'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance-logs'] });
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.errors?.[0] || 'Failed to bulk mark attendance');
+    }
+  });
+
+  const bulkMarkMonthMutation = useMutation({
+    mutationFn: async (payload) => {
+      const response = await apiClient.post('/hr/attendance/bulk-month', payload);
+      return response.data;
+    },
+    onSuccess: (res) => {
+      toast.success(`Marked month ${res.data?.month} Present for all employees!`);
+      queryClient.invalidateQueries({ queryKey: ['monthly-attendance'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance-logs'] });
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.errors?.[0] || 'Failed to bulk mark month attendance');
+    }
+  });
+
+  const updateCellMutation = useMutation({
+    mutationFn: async ({ employee_id, attendance_date, status }) => {
+      const response = await apiClient.put('/hr/attendance/cell', {
+        employee_id,
+        attendance_date,
+        status
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monthly-attendance'] });
+      queryClient.invalidateQueries({ queryKey: ['attendance-logs'] });
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.errors?.[0] || 'Failed to update cell status');
     }
   });
 
@@ -121,6 +190,49 @@ export default function HrPage() {
       toast.error(err.response?.data?.errors?.[0] || 'Failed to run payroll');
     }
   });
+
+  const statusCycle = ['Not-Set', 'Present', 'Absent', 'Half-Day', 'Leave', 'Weekly-Off'];
+
+  const handleCellClick = (empId, dateStr, currentStatus) => {
+    const currentIndex = statusCycle.indexOf(currentStatus);
+    const nextStatus = statusCycle[(currentIndex + 1) % statusCycle.length];
+    updateCellMutation.mutate({
+      employee_id: empId,
+      attendance_date: dateStr,
+      status: nextStatus
+    });
+  };
+
+  const getBadgeStyle = (status) => {
+    switch (status) {
+      case 'Present':
+        return 'bg-emerald-500 text-white font-bold hover:bg-emerald-600';
+      case 'Absent':
+        return 'bg-rose-500 text-white font-bold hover:bg-rose-600';
+      case 'Half-Day':
+        return 'bg-amber-500 text-white font-bold hover:bg-amber-600';
+      case 'Leave':
+        return 'bg-sky-500 text-white font-bold hover:bg-sky-600';
+      case 'Weekly-Off':
+        return 'bg-slate-300 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold';
+      case 'Holiday':
+        return 'bg-purple-500 text-white font-bold';
+      default:
+        return 'bg-slate-100 dark:bg-slate-800 text-slate-400 border border-dashed border-slate-300 dark:border-slate-700 hover:border-rose-400';
+    }
+  };
+
+  const getStatusShort = (status) => {
+    switch (status) {
+      case 'Present': return 'P';
+      case 'Absent': return 'A';
+      case 'Half-Day': return 'HD';
+      case 'Leave': return 'L';
+      case 'Weekly-Off': return 'WO';
+      case 'Holiday': return 'H';
+      default: return '-';
+    }
+  };
 
   const resetEmployeeForm = () => {
     setEmpName('');
@@ -247,28 +359,204 @@ export default function HrPage() {
         )}
 
         {activeTab === 'attendance' && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Daily Attendance Logs</h3>
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 font-semibold">
-                  <th className="py-3 px-4">Date</th>
-                  <th className="py-3 px-4">Employee ID</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Notes</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                {attendanceLogs.map((log, index) => (
-                  <tr key={index} className="hover:bg-slate-50 dark:hover:bg-slate-800/20">
-                    <td className="py-3 px-4 text-slate-550">{new Date(log.attendance_date).toLocaleDateString()}</td>
-                    <td className="py-3 px-4 font-semibold">Employee #{log.employee_id}</td>
-                    <td className="py-3 px-4"><span className={`px-2 py-0.5 rounded text-xs font-bold ${log.status === 'Present' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>{log.status}</span></td>
-                    <td className="py-3 px-4 text-slate-400 italic">{log.notes}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-6">
+            {/* Top Toolbar and Controls */}
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-slate-50 dark:bg-slate-850 p-4 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div className="flex flex-wrap items-center gap-3">
+                {/* View Mode Switcher */}
+                <div className="flex bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => setAttendanceViewMode('grid')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${attendanceViewMode === 'grid' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:text-rose-500'}`}
+                  >
+                    Monthly Matrix Grid
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAttendanceViewMode('logs')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${attendanceViewMode === 'logs' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:text-rose-500'}`}
+                  >
+                    Daily Log List
+                  </button>
+                </div>
+
+                {/* Month Picker */}
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                  className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg text-xs font-semibold"
+                >
+                  {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((m, idx) => (
+                    <option key={idx} value={idx + 1}>{m}</option>
+                  ))}
+                </select>
+
+                {/* Year Picker */}
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                  className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg text-xs font-semibold"
+                >
+                  {[2024, 2025, 2026, 2027].map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+
+                {/* Department Filter */}
+                <select
+                  value={selectedDept}
+                  onChange={(e) => setSelectedDept(e.target.value)}
+                  className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-lg text-xs font-semibold"
+                >
+                  <option value="">All Departments</option>
+                  {Array.from(new Set(employees.map(e => e.department).filter(Boolean))).map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Action Buttons: Bulk Mark Present */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <input
+                    type="date"
+                    value={bulkDate}
+                    onChange={(e) => setBulkDate(e.target.value)}
+                    className="px-2 py-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => bulkMarkDateMutation.mutate({ date: bulkDate, status: 'Present' })}
+                    disabled={bulkMarkDateMutation.isPending}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1"
+                  >
+                    <FiCheck />
+                    <span>Mark All Present (Selected Date)</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => bulkMarkMonthMutation.mutate({ year: selectedYear, month: selectedMonth, status: 'Present' })}
+                  disabled={bulkMarkMonthMutation.isPending}
+                  className="px-3 py-2 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700 text-white rounded-xl text-xs font-extrabold shadow-md transition-all flex items-center gap-1.5"
+                >
+                  <FiCheck />
+                  <span>Mark All Present (Full Month)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Legend bar */}
+            <div className="flex flex-wrap items-center justify-between text-xs px-4 py-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div className="flex flex-wrap items-center gap-4">
+                <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px]">Legend:</span>
+                <span className="inline-flex items-center gap-1.5"><span className="w-5 h-5 rounded flex items-center justify-center bg-emerald-500 text-white font-bold text-[10px]">P</span> Present</span>
+                <span className="inline-flex items-center gap-1.5"><span className="w-5 h-5 rounded flex items-center justify-center bg-rose-500 text-white font-bold text-[10px]">A</span> Absent</span>
+                <span className="inline-flex items-center gap-1.5"><span className="w-5 h-5 rounded flex items-center justify-center bg-amber-500 text-white font-bold text-[10px]">HD</span> Half Day</span>
+                <span className="inline-flex items-center gap-1.5"><span className="w-5 h-5 rounded flex items-center justify-center bg-sky-500 text-white font-bold text-[10px]">L</span> Leave</span>
+                <span className="inline-flex items-center gap-1.5"><span className="w-5 h-5 rounded flex items-center justify-center bg-slate-300 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[10px]">WO</span> Weekly Off</span>
+                <span className="inline-flex items-center gap-1.5"><span className="w-5 h-5 rounded flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-400 border border-dashed border-slate-300 dark:border-slate-700 text-[10px]">-</span> Not Set</span>
+              </div>
+              <span className="text-slate-400 italic text-[11px]">💡 Click any cell to cycle status (P → A → HD → L → WO)</span>
+            </div>
+
+            {/* Attendance Grid View */}
+            {attendanceViewMode === 'grid' && (
+              <div className="relative overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm max-h-[600px] overflow-y-auto">
+                {isLoadingMonthlyAtt ? (
+                  <div className="py-16 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-rose-600" /></div>
+                ) : !monthlyData?.employees?.length ? (
+                  <div className="py-12 text-center text-slate-400 text-sm">No employees found for the selected department.</div>
+                ) : (
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="sticky top-0 z-20 bg-slate-900 text-white shadow-md">
+                      <tr>
+                        <th className="py-3 px-3 sticky left-0 z-30 bg-slate-900 font-bold border-r border-slate-700 min-w-[180px]">
+                          Employee
+                        </th>
+                        {monthlyData?.days?.map((d) => (
+                          <th
+                            key={d.day}
+                            className={`py-2 px-1 text-center font-bold border-r border-slate-800 min-w-[32px] ${d.is_weekend ? 'bg-slate-800 text-rose-300' : ''}`}
+                          >
+                            <div>{d.day}</div>
+                            <div className="text-[9px] uppercase font-normal opacity-75">{d.weekday}</div>
+                          </th>
+                        ))}
+                        <th className="py-3 px-2 text-center font-bold bg-emerald-900/60 text-emerald-200 border-l border-slate-700">P</th>
+                        <th className="py-3 px-2 text-center font-bold bg-rose-900/60 text-rose-200 border-l border-slate-700">A</th>
+                        <th className="py-3 px-2 text-center font-bold bg-amber-900/60 text-amber-200 border-l border-slate-700">HD</th>
+                        <th className="py-3 px-2 text-center font-bold bg-sky-900/60 text-sky-200 border-l border-slate-700">L</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300">
+                      {monthlyData?.employees?.map((emp) => (
+                        <tr key={emp.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                          <td className="py-2.5 px-3 sticky left-0 z-10 bg-white dark:bg-slate-900 font-semibold border-r border-slate-200 dark:border-slate-800 shadow-sm">
+                            <div className="text-slate-900 dark:text-white font-bold text-xs truncate max-w-[170px]">{emp.name}</div>
+                            <div className="text-[10px] text-slate-400 font-mono truncate">{emp.employee_code} • {emp.department || 'Staff'}</div>
+                          </td>
+
+                          {monthlyData?.days?.map((d) => {
+                            const status = emp.attendance[String(d.day)] || 'Not-Set';
+                            return (
+                              <td
+                                key={d.day}
+                                onClick={() => handleCellClick(emp.id, d.date, status)}
+                                title={`${emp.name} - ${d.date}: ${status} (Click to toggle)`}
+                                className={`py-2 px-1 text-center border-r border-slate-100 dark:border-slate-800 cursor-pointer transition-all ${d.is_weekend ? 'bg-slate-50/50 dark:bg-slate-850/50' : ''}`}
+                              >
+                                <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] cursor-pointer shadow-2xs ${getBadgeStyle(status)}`}>
+                                  {getStatusShort(status)}
+                                </span>
+                              </td>
+                            );
+                          })}
+
+                          <td className="py-2.5 px-2 text-center font-extrabold text-emerald-600 bg-emerald-50/30 dark:bg-emerald-950/20 border-l border-slate-200 dark:border-slate-800">{emp.summary?.Present || 0}</td>
+                          <td className="py-2.5 px-2 text-center font-extrabold text-rose-600 bg-rose-50/30 dark:bg-rose-950/20 border-l border-slate-200 dark:border-slate-800">{emp.summary?.Absent || 0}</td>
+                          <td className="py-2.5 px-2 text-center font-bold text-amber-600 bg-amber-50/30 dark:bg-amber-950/20 border-l border-slate-200 dark:border-slate-800">{emp.summary?.['Half-Day'] || 0}</td>
+                          <td className="py-2.5 px-2 text-center font-bold text-sky-600 bg-sky-50/30 dark:bg-sky-950/20 border-l border-slate-200 dark:border-slate-800">{emp.summary?.Leave || 0}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+
+            {/* Daily Log List View */}
+            {attendanceViewMode === 'logs' && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Daily Log Records</h3>
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 font-semibold">
+                      <th className="py-3 px-4">Date</th>
+                      <th className="py-3 px-4">Employee ID</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                    {attendanceLogs.map((log, index) => (
+                      <tr key={index} className="hover:bg-slate-50 dark:hover:bg-slate-800/20">
+                        <td className="py-3 px-4 text-slate-550">{new Date(log.attendance_date).toLocaleDateString()}</td>
+                        <td className="py-3 px-4 font-semibold">Employee #{log.employee_id}</td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${log.status === 'Present' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                            {log.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-slate-400 italic">{log.notes}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 

@@ -24,14 +24,17 @@ def save_setting():
     data = request.get_json() or {}
     key = data.get('key')
     value = data.get('value')
-    
-    setting = CompanySetting.query.filter_by(tenant_id=user.tenant_id, key=key).first()
+    group = data.get('group', 'general')
+
+    setting = CompanySetting.query.filter_by(tenant_id=user.tenant_id, setting_key=key).first()
     if not setting:
-        setting = CompanySetting(tenant_id=user.tenant_id, company_id=user.company_id, key=key, value=value)
+        setting = CompanySetting(tenant_id=user.tenant_id, company_id=user.company_id,
+                                 setting_key=key, setting_value=value, setting_group=group)
         db.session.add(setting)
     else:
-        setting.value = value
-    
+        setting.setting_value = value
+        setting.setting_group = group
+
     db.session.commit()
     return jsonify({"data": setting.to_dict(), "errors": None}), 200
 

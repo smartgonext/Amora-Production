@@ -55,11 +55,19 @@ def list_users():
     
     # Include role names in response
     results = []
+    company_cache = {}
+    branch_cache = {}
     for u in users.items:
         user_dict = u.to_dict()
         user_dict['role_name'] = u.role.name if u.role else None
-        user_dict['company_name'] = u.company.name if u.company else None
-        user_dict['branch_name'] = u.branch.name if u.branch else None
+        if u.company_id and u.company_id not in company_cache:
+            company_cache[u.company_id] = Company.query.get(u.company_id)
+        company = company_cache.get(u.company_id)
+        user_dict['company_name'] = company.name if company else None
+        if u.branch_id and u.branch_id not in branch_cache:
+            branch_cache[u.branch_id] = Branch.query.get(u.branch_id)
+        branch = branch_cache.get(u.branch_id)
+        user_dict['branch_name'] = branch.name if branch else None
         results.append(user_dict)
     
     return jsonify({
@@ -314,7 +322,7 @@ def list_roles():
     results = []
     for role in roles:
         role_dict = role.to_dict()
-        role_dict['permissions_count'] = role.permissions.count()
+        role_dict['permissions_count'] = len(role.permissions)
         results.append(role_dict)
     
     return jsonify({
