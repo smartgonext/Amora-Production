@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { FiHome, FiGrid, FiFileText } from 'react-icons/fi';
+import { FiHome, FiGrid, FiFileText, FiShoppingBag } from 'react-icons/fi';
 import CompanySettingsPage from './CompanySettingsPage';
 import CustomFormBuilderPage from './CustomFormBuilderPage';
 import TemplateDesignerPage from './TemplateDesignerPage';
+import StoreChannelPage from './StoreChannelPage';
 
 const TABS = [
   { key: 'company', label: 'Company Settings', icon: FiHome, component: CompanySettingsPage },
   { key: 'forms', label: 'Form Builder', icon: FiGrid, component: CustomFormBuilderPage },
   { key: 'templates', label: 'Template Designer', icon: FiFileText, component: TemplateDesignerPage },
+  { key: 'store', label: 'Store / Restaurant', icon: FiShoppingBag, component: StoreChannelPage },
 ];
 
 export default function SettingsPage() {

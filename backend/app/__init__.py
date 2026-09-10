@@ -68,6 +68,7 @@ def create_app(config_name='dev', config_overrides=None):
     from app.routes.custom_fields import custom_fields_bp
     from app.routes.manufacturing import manufacturing_bp
     from app.routes.bakery import bakery_bp
+    from app.routes.restaurant_api import store_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
     app.register_blueprint(superadmin_bp, url_prefix='/api/v1/superadmin')
@@ -100,6 +101,7 @@ def create_app(config_name='dev', config_overrides=None):
     app.register_blueprint(custom_fields_bp, url_prefix='/api/v1/custom-fields')
     app.register_blueprint(manufacturing_bp, url_prefix='/api/v1/manufacturing')
     app.register_blueprint(bakery_bp, url_prefix='/api/v1/bakery')
+    app.register_blueprint(store_bp, url_prefix='/api/v1/store')
     
     @app.route('/')
     def index():
