@@ -29,6 +29,24 @@ BUSINESS_TYPE_MFG_PROFILES = {
         'tracking_label': 'Batch + Expiry',
         'operation_label': 'Batch Mixing',
     },
+    'Ice Cream Manufacturing': {
+        'mfg_type': 'process',
+        'enabled_features': ['batch_production', 'expiry_tracking', 'qc',
+                             'fefo', 'cold_chain', 'haccp', 'routing', 'mrp',
+                             'work_orders', 'job_work'],
+        'bom_label': 'Recipe / Batch Formula',
+        'tracking_label': 'Batch + Expiry (FEFO)',
+        'operation_label': 'Pasteurization / Churning',
+    },
+    'Ice Cream & Dairy': {
+        'mfg_type': 'process',
+        'enabled_features': ['batch_production', 'expiry_tracking', 'qc',
+                             'fefo', 'cold_chain', 'haccp', 'routing', 'mrp',
+                             'work_orders', 'job_work'],
+        'bom_label': 'Recipe / Batch Formula',
+        'tracking_label': 'Batch + Expiry (FEFO)',
+        'operation_label': 'Pasteurization / Churning',
+    },
 }
 
 

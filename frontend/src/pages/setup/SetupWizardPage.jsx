@@ -5,7 +5,7 @@ import { FiCheck, FiChevronRight, FiChevronLeft } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
 const BUSINESS_TYPES = [
-  'Retail Shop', 'Wholesale Distribution', 'Bakery', 'Equipment Rental',
+  'Ice Cream Manufacturing', 'Bakery', 'Retail Shop', 'Wholesale Distribution', 'Equipment Rental',
   'Manufacturing Unit', 'Textile Business', 'Repair Shop', 'Vehicle Service',
   'Mobile Shop', 'Medical Shop', 'Pharmacy', 'Jewellery Shop',
   'Supermarket', 'Crane & Forklift'

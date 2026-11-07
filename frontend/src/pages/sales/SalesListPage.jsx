@@ -463,7 +463,7 @@ export default function SalesListPage() {
             className={`flex items-center gap-2 pb-4 font-semibold border-b-2 transition-all ${
               activeTab === tab.id
                 ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
             }`}
           >
             <tab.icon />
@@ -479,7 +479,7 @@ export default function SalesListPage() {
           <div className="overflow-x-auto text-sm">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase text-xs font-bold tracking-wider">
+                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 uppercase text-xs font-bold tracking-wider">
                   <th className="py-4 px-6">Invoice No.</th>
                   <th className="py-4 px-6">Date</th>
                   <th className="py-4 px-6">Type</th>
@@ -495,11 +495,11 @@ export default function SalesListPage() {
                     <td className="py-4 px-6">{inv.type}</td>
                     <td className="py-4 px-6">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                        inv.payment_status === 'Paid' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'
+                        inv.payment_status === 'Paid' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
                       }`}>{inv.payment_status}</span>
                     </td>
                     <td className="py-4 px-6 text-right">
-                      <button onClick={() => { setSelectedInvoice({ id: inv.id, type: 'invoice' }); setIsDetailOpen(true); }} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400">
+                      <button onClick={() => { setSelectedInvoice({ id: inv.id, type: 'invoice' }); setIsDetailOpen(true); }} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400">
                         <FiEye className="text-lg" />
                       </button>
                     </td>
@@ -514,7 +514,7 @@ export default function SalesListPage() {
           <div className="overflow-x-auto text-sm">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase text-xs font-bold tracking-wider">
+                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 uppercase text-xs font-bold tracking-wider">
                   <th className="py-4 px-6">Quotation No.</th>
                   <th className="py-4 px-6">Date</th>
                   <th className="py-4 px-6">Status</th>
@@ -524,17 +524,17 @@ export default function SalesListPage() {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                 {quotations.map((q) => (
-                  <tr key={q.id}>
-                    <td className="py-4 px-6 font-mono text-white">{q.quotation_number}</td>
+                  <tr key={q.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
+                    <td className="py-4 px-6 font-mono font-semibold text-slate-900 dark:text-white">{q.quotation_number}</td>
                     <td className="py-4 px-6">{new Date(q.quotation_date).toLocaleDateString('en-IN')}</td>
-                    <td className="py-4 px-6"><span className="text-amber-400">{q.status}</span></td>
-                    <td className="py-4 px-6 text-right font-bold text-white">{formatINR(q.total_amount)}</td>
+                    <td className="py-4 px-6"><span className="text-amber-600 dark:text-amber-400 font-semibold">{q.status}</span></td>
+                    <td className="py-4 px-6 text-right font-bold text-slate-900 dark:text-white">{formatINR(q.total_amount)}</td>
                     <td className="py-4 px-6 text-right flex items-center justify-end gap-2">
-                      <button onClick={() => { setSelectedInvoice({ id: q.id, type: 'quotation' }); setIsDetailOpen(true); }} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400">
+                      <button onClick={() => { setSelectedInvoice({ id: q.id, type: 'quotation' }); setIsDetailOpen(true); }} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400">
                         <FiEye className="text-lg" />
                       </button>
                       {q.converted_to_invoice_id ? (
-                        <span className="text-[11px] text-emerald-400 font-semibold">Converted</span>
+                        <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">Converted</span>
                       ) : (
                         <button
                           onClick={() => convertQuotationMutation.mutate({
@@ -559,7 +559,7 @@ export default function SalesListPage() {
           <div className="overflow-x-auto text-sm">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase text-xs font-bold tracking-wider">
+                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 uppercase text-xs font-bold tracking-wider">
                   <th className="py-4 px-6">Order No.</th>
                   <th className="py-4 px-6">Date</th>
                   <th className="py-4 px-6">Status</th>
@@ -568,11 +568,11 @@ export default function SalesListPage() {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                 {orders.map((o) => (
-                  <tr key={o.id}>
-                    <td className="py-4 px-6 font-mono text-white">{o.order_number}</td>
+                  <tr key={o.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
+                    <td className="py-4 px-6 font-mono font-semibold text-slate-900 dark:text-white">{o.order_number}</td>
                     <td className="py-4 px-6">{new Date(o.order_date).toLocaleDateString('en-IN')}</td>
-                    <td className="py-4 px-6"><span className="text-indigo-400">{o.status}</span></td>
-                    <td className="py-4 px-6 text-right font-bold text-white">{formatINR(o.total_amount)}</td>
+                    <td className="py-4 px-6"><span className="text-indigo-600 dark:text-indigo-400 font-semibold">{o.status}</span></td>
+                    <td className="py-4 px-6 text-right font-bold text-slate-900 dark:text-white">{formatINR(o.total_amount)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -584,7 +584,7 @@ export default function SalesListPage() {
           <div className="overflow-x-auto text-sm">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase text-xs font-bold tracking-wider">
+                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 uppercase text-xs font-bold tracking-wider">
                   <th className="py-4 px-6">Challan No.</th>
                   <th className="py-4 px-6">Date</th>
                   <th className="py-4 px-6">Vehicle Number</th>
@@ -593,11 +593,11 @@ export default function SalesListPage() {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                 {challans.map((c) => (
-                  <tr key={c.id}>
-                    <td className="py-4 px-6 font-mono text-white">{c.challan_number}</td>
+                  <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
+                    <td className="py-4 px-6 font-mono font-semibold text-slate-900 dark:text-white">{c.challan_number}</td>
                     <td className="py-4 px-6">{new Date(c.challan_date).toLocaleDateString('en-IN')}</td>
                     <td className="py-4 px-6">{c.vehicle_number || 'N/A'}</td>
-                    <td className="py-4 px-6 text-emerald-400">{c.status}</td>
+                    <td className="py-4 px-6 text-emerald-600 dark:text-emerald-400 font-semibold">{c.status}</td>
                   </tr>
                 ))}
               </tbody>
@@ -609,7 +609,7 @@ export default function SalesListPage() {
           <div className="overflow-x-auto text-sm">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase text-xs font-bold tracking-wider">
+                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 uppercase text-xs font-bold tracking-wider">
                   <th className="py-4 px-6">Return Number</th>
                   <th className="py-4 px-6">Date</th>
                   <th className="py-4 px-6">Reason</th>
@@ -618,11 +618,11 @@ export default function SalesListPage() {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                 {returns.map((r) => (
-                  <tr key={r.id}>
-                    <td className="py-4 px-6 font-mono text-white">{r.return_number}</td>
+                  <tr key={r.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
+                    <td className="py-4 px-6 font-mono font-semibold text-slate-900 dark:text-white">{r.return_number}</td>
                     <td className="py-4 px-6">{new Date(r.return_date).toLocaleDateString('en-IN')}</td>
                     <td className="py-4 px-6">{r.reason || 'N/A'}</td>
-                    <td className="py-4 px-6 text-right text-rose-400">{formatINR(r.total_amount)}</td>
+                    <td className="py-4 px-6 text-right text-rose-600 dark:text-rose-400 font-bold">{formatINR(r.total_amount)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -743,26 +743,26 @@ export default function SalesListPage() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="relative w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-2xl p-6 z-10 space-y-4"
+              className="relative w-full max-w-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 z-10 space-y-4 shadow-2xl"
             >
-              <div className="flex justify-between items-center pb-2 border-b border-slate-800">
-                <h3 className="text-lg font-bold text-white">
+              <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-800">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                   {selectedInvoice?.type === 'quotation' ? 'Quotation' : 'Invoice'} Details — {invoiceDetail?.invoice_number || invoiceDetail?.quotation_number}
                 </h3>
-                <button onClick={() => setIsDetailOpen(false)} className="text-slate-400 hover:text-white"><FiX /></button>
+                <button onClick={() => setIsDetailOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white"><FiX /></button>
               </div>
               {isLoadingDetail ? (
                 <div className="py-8 text-center text-slate-400">Loading details...</div>
               ) : (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-3 text-xs text-slate-400">
-                    <div>Date: <span className="text-white font-semibold">{new Date(invoiceDetail?.invoice_date || invoiceDetail?.quotation_date || Date.now()).toLocaleDateString()}</span></div>
-                    <div>{selectedInvoice?.type === 'quotation' ? 'Status' : 'Payment Method'}: <span className="text-white font-semibold">{invoiceDetail?.payment_method || invoiceDetail?.status}</span></div>
-                    <div>Total: <span className="text-white font-semibold">{formatINR(invoiceDetail?.total_amount)}</span></div>
+                  <div className="grid grid-cols-3 text-xs text-slate-600 dark:text-slate-400">
+                    <div>Date: <span className="text-slate-900 dark:text-white font-semibold">{new Date(invoiceDetail?.invoice_date || invoiceDetail?.quotation_date || Date.now()).toLocaleDateString()}</span></div>
+                    <div>{selectedInvoice?.type === 'quotation' ? 'Status' : 'Payment Method'}: <span className="text-slate-900 dark:text-white font-semibold">{invoiceDetail?.payment_method || invoiceDetail?.status}</span></div>
+                    <div>Total: <span className="text-slate-900 dark:text-white font-semibold">{formatINR(invoiceDetail?.total_amount)}</span></div>
                   </div>
-                  <div className="border border-slate-800 rounded-xl overflow-hidden text-xs">
+                  <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden text-xs">
                     <table className="w-full text-left">
-                      <thead className="bg-slate-850 text-slate-400 font-bold">
+                      <thead className="bg-slate-50 dark:bg-slate-850 text-slate-600 dark:text-slate-400 font-bold">
                         <tr>
                           <th className="p-2">Item</th>
                           <th className="p-2 text-right">Qty</th>
@@ -770,23 +770,23 @@ export default function SalesListPage() {
                           <th className="p-2 text-right">Total</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {invoiceDetail?.items?.map(itm => (
-                          <tr key={itm.id} className="border-t border-slate-800 text-slate-300">
-                            <td className="p-2">{itm.description || `Product #${itm.product_id}`}</td>
+                          <tr key={itm.id} className="text-slate-700 dark:text-slate-300">
+                            <td className="p-2 font-medium">{itm.description || `Product #${itm.product_id}`}</td>
                             <td className="p-2 text-right">{itm.quantity}</td>
                             <td className="p-2 text-right">{formatINR(itm.rate)}</td>
-                            <td className="p-2 text-right text-white font-bold">{formatINR(itm.total_amount)}</td>
+                            <td className="p-2 text-right text-slate-900 dark:text-white font-bold">{formatINR(itm.total_amount)}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
                   <div className="flex justify-end gap-3 pt-2">
-                    <button onClick={handlePrint} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5">
+                    <button onClick={handlePrint} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow">
                       <FiPrinter /> Print Receipt
                     </button>
-                    <button onClick={() => setIsDetailOpen(false)} className="px-4 py-2 bg-slate-850 text-slate-400 hover:text-white rounded-lg text-xs">Close</button>
+                    <button onClick={() => setIsDetailOpen(false)} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-850 text-slate-600 dark:text-slate-400 dark:hover:text-white rounded-lg text-xs font-semibold transition-colors">Close</button>
                   </div>
                 </div>
               )}

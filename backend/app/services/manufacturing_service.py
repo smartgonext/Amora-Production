@@ -174,6 +174,7 @@ def create_bom(tenant_id, company_id, data):
         standard_cost=as_decimal(data.get('standard_cost', 0)),
         overhead_cost=as_decimal(data.get('overhead_cost', 0)),
         total_setup_time_mins=int(data.get('total_setup_time_mins') or 0),
+        base_quantity=as_decimal(data.get('base_quantity') or 1.0),
         hydration_pct=as_decimal(data.get('hydration_pct', 0)),
         dough_yield_pct=as_decimal(data.get('dough_yield_pct', 0)),
         bake_loss_pct=as_decimal(data.get('bake_loss_pct', 0)),
@@ -239,6 +240,7 @@ def revise_bom(tenant_id, bom, data=None):
         'version': next_version,
         'revision_no': next_revision,
         'product_id': product_id,
+        'base_quantity': str(bom.base_quantity or 1.0),
         'status': 'draft',
         'standard_cost': str(bom.standard_cost or 0),
         'overhead_cost': str(bom.overhead_cost or 0),
@@ -452,11 +454,12 @@ def release_work_order(work_order, warehouse_id=None, company_id=None):
                 status='pending',
             ))
 
-    if bom is not None:
+        base_qty = as_decimal(bom.base_quantity) if bom.base_quantity and bom.base_quantity > 0 else as_decimal(1)
+        scale_ratio = as_decimal(work_order.planned_qty) / base_qty
         for item in bom.items:
             if item.is_alternate:
                 continue
-            qty = as_decimal(item.qty_required) * as_decimal(work_order.planned_qty) * \
+            qty = as_decimal(item.qty_required) * scale_ratio * \
                 (as_decimal(1) + as_decimal(item.waste_pct) / 100)
             product = db.session.get(Product, item.item_id)
             if product is None:

@@ -282,10 +282,10 @@ def setup_status():
     }), 200
 
 
-@setup_bp.route('/ui-config', methods=['GET'])
+@setup_bp.route('/ui-config', methods=['GET', 'PUT'])
 @jwt_required()
-def get_ui_config():
-    """Return the company's effective UI configuration.
+def get_or_update_ui_config():
+    """Return or update the company's effective UI configuration.
 
     Driven by the selected business type: which top-level modules are shown,
     which are hidden, and which feature flags are enabled so the front-end can
@@ -308,6 +308,17 @@ def get_ui_config():
             "meta": None,
             "errors": ["Company not found"],
         }), 404
+
+    if request.method == 'PUT':
+        data = request.get_json() or {}
+        enabled_modules = data.get('enabled_modules')
+        if enabled_modules is not None:
+            from app.services.business_type_config import _set_company_setting, MODULE_CODES
+            valid_modules = [m for m in enabled_modules if m in MODULE_CODES]
+            hidden_modules = [m for m in MODULE_CODES if m not in valid_modules]
+            _set_company_setting(user.tenant_id, company.id, 'ui_modules', ",".join(valid_modules))
+            _set_company_setting(user.tenant_id, company.id, 'ui_hidden', ",".join(hidden_modules))
+            db.session.commit()
 
     cfg = get_company_ui_config(company)
     return jsonify({"data": cfg, "meta": None, "errors": None}), 200

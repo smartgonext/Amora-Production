@@ -5,7 +5,7 @@ import { FiLayers, FiAlertCircle } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 
 const BUSINESS_TYPES = [
-  'Retail Shop', 'Wholesale Distribution', 'Bakery', 'Equipment Rental',
+  'Ice Cream Manufacturing', 'Bakery', 'Retail Shop', 'Wholesale Distribution', 'Equipment Rental',
   'Manufacturing Unit', 'Textile Business', 'Repair Shop', 'Vehicle Service',
   'Mobile Shop', 'Medical Shop', 'Pharmacy', 'Jewellery Shop',
   'Supermarket', 'Crane & Forklift'
@@ -14,6 +14,7 @@ const BUSINESS_TYPES = [
 // Mirrors backend's BUSINESS_TYPE_MFG_PROFILES so the registration form can show
 // exactly which manufacturing engine config will be seeded for the selection.
 const MFG_PROFILES = {
+  'Ice Cream Manufacturing': { mfg_type: 'process', label: 'Recipe / Batch Formula', features: 'batch production, expiry tracking, FEFO, HACCP, QC, routing' },
   'Manufacturing Unit': { mfg_type: 'discrete', label: 'Multi-level BOM', features: 'routing, serial tracking, subcontracting, job work, auto-PO' },
   'Textile Business': { mfg_type: 'textile', label: 'Variant Matrix', features: 'routing, lot tracking, size/color matrix, job work, auto-PO' },
   'Bakery': { mfg_type: 'process', label: 'Recipe / Yield', features: 'batch production, expiry tracking, QC' },
@@ -129,13 +130,26 @@ export default function RegisterPage() {
                     {BUSINESS_TYPES.map(bt => <option key={bt} value={bt} className="text-slate-800">{bt}</option>)}
                   </select>
 
-                  {MFG_PROFILES[form.business_type] && (
+                  {MFG_PROFILES[form.business_type] ? (
                     <div className="mt-2 p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300">
                       <p className="font-bold mb-1">Manufacturing engine: {MFG_PROFILES[form.business_type].mfg_type}</p>
                       <p>BOM type: <span className="font-semibold">{MFG_PROFILES[form.business_type].label}</span></p>
                       <p className="text-indigo-300/80">Features: {MFG_PROFILES[form.business_type].features}</p>
+                      <p className="text-emerald-400 font-semibold mt-1">✨ Tailored sidebar: Equipment & Rentals are hidden automatically.</p>
                     </div>
-                  )}
+                  ) : form.business_type === 'Equipment Rental' || form.business_type === 'Crane & Forklift' ? (
+                    <div className="mt-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300">
+                      <p className="font-bold mb-1">Equipment & Hire Engine</p>
+                      <p>Features: Asset Registry, Rental Bookings, Security Deposits, AMC Contracts & Maintenance.</p>
+                      <p className="text-emerald-400 font-semibold mt-1">✨ Tailored sidebar: Manufacturing tools are hidden automatically.</p>
+                    </div>
+                  ) : form.business_type === 'Retail Shop' || form.business_type === 'Supermarket' ? (
+                    <div className="mt-2 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
+                      <p className="font-bold mb-1">Retail POS & Store Engine</p>
+                      <p>Features: Fast Barcode POS, Receipt Printing, Inventory, Procurement & CRM.</p>
+                      <p className="text-emerald-400 font-semibold mt-1">✨ Tailored sidebar: Manufacturing & Rentals are hidden automatically.</p>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="sm:col-span-2 space-y-1.5">

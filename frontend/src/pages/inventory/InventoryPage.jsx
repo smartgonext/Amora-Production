@@ -194,7 +194,7 @@ export default function InventoryPage() {
             className={`flex items-center gap-2 pb-4 font-semibold border-b-2 transition-all ${
               activeTab === tab.id
                 ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
             }`}
           >
             <tab.icon />
@@ -276,12 +276,12 @@ export default function InventoryPage() {
                         <span className="text-xs text-slate-500">{p.description}</span>
                       </td>
                       <td className="py-4 px-6 font-mono text-xs">{p.sku || 'N/A'}</td>
-                      <td className="py-4 px-6 font-bold text-white">{p.current_stock || 0} pcs</td>
-                      <td className="py-4 px-6 text-slate-400">{p.min_stock_level || 0} pcs</td>
+                      <td className="py-4 px-6 font-bold text-slate-900 dark:text-white">{p.current_stock || 0} pcs</td>
+                      <td className="py-4 px-6 text-slate-500 dark:text-slate-400">{p.min_stock_level || 0} pcs</td>
                       <td className="py-4 px-6 text-right">
                         <button
                           onClick={() => { setSelectedProduct(p); setIsAdjustOpen(true); }}
-                          className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-lg text-xs"
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-white font-bold rounded-lg text-xs transition-colors"
                         >
                           Adjust
                         </button>
@@ -298,9 +298,9 @@ export default function InventoryPage() {
       {activeTab === 'warehouses' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {warehouses.map(w => (
-            <div key={w.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-5 rounded-xl space-y-2">
-              <span className="text-base font-bold text-white block">{w.name}</span>
-              <span className="text-xs text-slate-400 block"><FiMapPin className="inline mr-1" />{w.location || 'No location set'}</span>
+            <div key={w.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 p-5 rounded-xl space-y-2 shadow-sm">
+              <span className="text-base font-bold text-slate-900 dark:text-white block">{w.name}</span>
+              <span className="text-xs text-slate-500 dark:text-slate-400 block"><FiMapPin className="inline mr-1" />{w.location || 'No location set'}</span>
               <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
                 w.is_active ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-500'
               }`}>{w.is_active ? 'Active Hub' : 'Inactive'}</span>
@@ -366,11 +366,11 @@ export default function InventoryPage() {
                     <td className="py-4 px-6 font-mono">Product #{lg.product_id}</td>
                     <td className="py-4 px-6">{new Date(lg.transaction_date).toLocaleDateString('en-IN')}</td>
                     <td className="py-4 px-6 font-bold">{lg.type}</td>
-                    <td className={`py-4 px-6 font-bold ${lg.quantity_delta > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    <td className={`py-4 px-6 font-bold ${lg.quantity_delta > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                       {lg.quantity_delta > 0 ? `+${lg.quantity_delta}` : lg.quantity_delta} pcs
                     </td>
-                    <td className="py-4 px-6 text-white font-mono">{lg.running_balance || 0}</td>
-                    <td className="py-4 px-6 text-slate-400">{lg.notes || 'No description'}</td>
+                    <td className="py-4 px-6 text-slate-900 dark:text-white font-mono font-semibold">{lg.running_balance || 0}</td>
+                    <td className="py-4 px-6 text-slate-500 dark:text-slate-400">{lg.notes || 'No description'}</td>
                   </tr>
                 ))}
                 {ledger.length === 0 && (
@@ -395,14 +395,14 @@ export default function InventoryPage() {
               exit={{ scale: 0.95, opacity: 0 }}
               className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 z-10 space-y-4 shadow-2xl"
             >
-              <div className="flex justify-between items-center pb-2 border-b border-slate-800">
-                <h3 className="text-lg font-bold text-white">Adjust Stock Level</h3>
-                <button onClick={() => setIsAdjustOpen(false)} className="text-slate-400 hover:text-white"><FiX /></button>
+              <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-800">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Adjust Stock Level</h3>
+                <button onClick={() => setIsAdjustOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white"><FiX /></button>
               </div>
               <form onSubmit={handleAdjustSubmit} className="space-y-4">
                 <div>
-                  <span className="text-xs text-slate-400 uppercase font-bold">Selected Item</span>
-                  <span className="text-sm font-bold text-white block mt-0.5">{selectedProduct?.name}</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 uppercase font-bold">Selected Item</span>
+                  <span className="text-sm font-bold text-slate-900 dark:text-white block mt-0.5">{selectedProduct?.name}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">

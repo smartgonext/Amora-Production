@@ -23,7 +23,7 @@ ChartJS.register(
 export default function DashboardPage() {
   const { user } = useAuth();
   const [pinnedMenus, setPinnedMenus] = useState(['POS Terminal', 'Reports Page']);
-  const [personalNotes, setPersonalNotes] = useState('Verify stock status before leasing forklift #3 next Monday.');
+  const [personalNotes, setPersonalNotes] = useState('Verify deck oven preheat (230°C) and sourdough bulk fermentation temperature (26°C) before 5:00 AM morning bake.');
   const [showCalculator, setShowCalculator] = useState(false);
   const [calcInput, setCalcInput] = useState('');
 
@@ -107,13 +107,13 @@ export default function DashboardPage() {
     labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     datasets: [
       {
-        label: 'Check-ins',
+        label: 'Bakes Completed',
         data: [14, 25, 18, 30, 28, 42, 35],
         backgroundColor: 'rgba(16, 185, 129, 0.85)',
         borderRadius: 6,
       },
       {
-        label: 'Bookings',
+        label: 'Counter Orders',
         data: [8, 12, 10, 15, 14, 22, 18],
         backgroundColor: 'rgba(99, 102, 241, 0.85)',
         borderRadius: 6,
@@ -191,9 +191,9 @@ export default function DashboardPage() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_120%,rgba(99,102,241,0.2),transparent)] pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="space-y-2">
-            <h1 className="text-3xl font-extrabold text-white tracking-tight">SmartGoNext Workspace</h1>
-            <p className="text-slate-350 text-sm max-w-lg leading-relaxed">
-              Operational dashboard for enterprise rentals, equipment maintenance contracts, and customer management.
+            <h1 className="text-3xl font-extrabold text-white tracking-tight">Amora Bakery & Patisserie</h1>
+            <p className="text-slate-300 text-sm max-w-lg leading-relaxed">
+              Live production hub, recipe yields, artisan bakery batches, POS counter sales, and ingredient inventory.
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -228,7 +228,7 @@ export default function DashboardPage() {
         {[
           { title: 'Total Sales Revenue', value: isSummaryLoading ? '...' : salesValue, change: salesChange, icon: FiDollarSign, color: 'from-blue-500 to-indigo-600' },
           { title: 'Registered Customers', value: isCustomersLoading ? '...' : customerCount, change: customersChange, icon: FiUsers, color: 'from-emerald-400 to-teal-650' },
-          { title: 'Total Equipment & Products', value: isSummaryLoading ? '...' : productsCount, change: productsChange, icon: FiPackage, color: 'from-purple-500 to-violet-700' },
+          { title: 'Bakery Products & Items', value: isSummaryLoading ? '...' : productsCount, change: productsChange, icon: FiPackage, color: 'from-purple-500 to-violet-700' },
           { title: 'Active Invoices', value: isSummaryLoading ? '...' : invoiceCount, change: invoicesChange, icon: FiShoppingCart, color: 'from-orange-400 to-rose-550' },
         ].map((card, i) => (
           <motion.div
@@ -278,7 +278,7 @@ export default function DashboardPage() {
         <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
           <h3 className="font-bold text-slate-800 dark:text-white text-sm uppercase tracking-wider flex items-center gap-1.5"><FiBookmark /> Pinned Favourites</h3>
           <div className="space-y-2">
-            {['POS Terminal', 'Reports Page', 'HR Suite', 'Project Board'].map((menu) => (
+            {['POS Terminal', 'Recipe / Yield', 'Bake Batches', 'Quality Control', 'Reports Page'].map((menu) => (
               <div key={menu} className="flex justify-between items-center py-2 px-3 bg-slate-50 dark:bg-slate-850 rounded-lg text-xs">
                 <span className="font-semibold">{menu}</span>
                 <button onClick={() => handleTogglePin(menu)} className="p-1 hover:text-amber-500 rounded text-slate-400">

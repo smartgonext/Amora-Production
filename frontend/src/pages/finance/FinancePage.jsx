@@ -216,7 +216,7 @@ export default function FinancePage() {
             className={`flex items-center gap-2 pb-4 font-semibold border-b-2 transition-all ${
               activeTab === tab.id
                 ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
             }`}
           >
             <tab.icon />
@@ -298,10 +298,10 @@ export default function FinancePage() {
                     <tbody className="divide-y divide-slate-800/50 text-slate-300">
                       {invoices.slice(0, 4).map(inv => (
                         <tr key={inv.id}>
-                          <td className="py-3 font-mono text-indigo-400">{inv.invoice_number}</td>
+                          <td className="py-3 font-mono text-indigo-600 dark:text-indigo-400">{inv.invoice_number}</td>
                           <td className="py-3">{new Date(inv.invoice_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</td>
                           <td className="py-3 font-medium">Invoice Posting ({inv.payment_method})</td>
-                          <td className="py-3 text-right font-bold text-white">{formatINR(inv.net_amount)}</td>
+                          <td className="py-3 text-right font-bold text-slate-900 dark:text-white">{formatINR(inv.net_amount)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -314,21 +314,21 @@ export default function FinancePage() {
         )}
 
         {activeTab === 'accounts' && (
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-xl p-6">
-            <h3 className="text-lg font-bold text-slate-950 dark:text-white mb-6">General Chart of Accounts</h3>
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-xl p-6 shadow-sm">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">General Chart of Accounts</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {['Asset', 'Liability', 'Equity', 'Income', 'Expense'].map(type => (
-                <div key={type} className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 bg-slate-950/20 space-y-3">
-                  <h4 className="font-extrabold text-sm text-indigo-400 border-b border-slate-800/80 pb-2 uppercase tracking-wide">{type} Accounts</h4>
+                <div key={type} className="border border-slate-200 dark:border-slate-800 rounded-xl p-4 bg-slate-50/50 dark:bg-slate-950/20 space-y-3">
+                  <h4 className="font-extrabold text-sm text-indigo-600 dark:text-indigo-400 border-b border-slate-200 dark:border-slate-800/80 pb-2 uppercase tracking-wide">{type} Accounts</h4>
                   <div className="space-y-2 text-xs">
                     {accounts.filter(a => a.account_type === type).map(acc => (
-                      <div key={acc.id} className="flex justify-between items-center p-2 bg-slate-900/40 rounded border border-slate-800/40">
-                        <span className="font-semibold text-slate-300">{acc.account_name}</span>
-                        <span className="font-mono text-white">{formatINR(acc.current_balance)}</span>
+                      <div key={acc.id} className="flex justify-between items-center p-2 bg-white dark:bg-slate-900/40 rounded border border-slate-200 dark:border-slate-800/40 shadow-xs">
+                        <span className="font-semibold text-slate-800 dark:text-slate-200">{acc.account_name}</span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">{formatINR(acc.current_balance)}</span>
                       </div>
                     ))}
                     {accounts.filter(a => a.account_type === type).length === 0 && (
-                      <span className="text-slate-600 block text-center py-4">No accounts mapped</span>
+                      <span className="text-slate-400 dark:text-slate-600 block text-center py-4">No accounts mapped</span>
                     )}
                   </div>
                 </div>
@@ -392,19 +392,19 @@ export default function FinancePage() {
                     <th className="py-2.5 text-right">Net Value</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/50 text-slate-300">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                   {expenses.map(exp => (
-                    <tr key={exp.id}>
-                      <td className="py-3 font-mono text-indigo-400">{exp.expense_number}</td>
+                    <tr key={exp.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
+                      <td className="py-3 font-mono text-indigo-600 dark:text-indigo-400">{exp.expense_number}</td>
                       <td className="py-3">{new Date(exp.expense_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</td>
                       <td className="py-3">{exp.payment_method}</td>
                       <td className="py-3 max-w-[200px] truncate">{exp.notes || 'N/A'}</td>
-                      <td className="py-3 text-right font-bold text-white">{formatINR(exp.amount)}</td>
+                      <td className="py-3 text-right font-bold text-slate-900 dark:text-white">{formatINR(exp.amount)}</td>
                     </tr>
                   ))}
                   {expenses.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-slate-500">No expenses recorded.</td>
+                      <td colSpan={5} className="py-8 text-center text-slate-400 dark:text-slate-500">No expenses recorded.</td>
                     </tr>
                   )}
                 </tbody>

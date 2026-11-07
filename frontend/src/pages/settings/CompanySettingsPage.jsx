@@ -1,13 +1,47 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FiSave, FiUpload, FiTrash2, FiHome, FiGlobe, FiMail, FiPhone,
-  FiMapPin, FiDollarSign, FiCalendar, FiImage, FiCheckCircle, FiAlertTriangle, FiSmartphone, FiFileText } from 'react-icons/fi';
+  FiMapPin, FiDollarSign, FiCalendar, FiImage, FiCheckCircle, FiAlertTriangle, FiSmartphone, FiFileText,
+  FiCheck, FiX, FiLayers, FiSliders } from 'react-icons/fi';
 import apiClient from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useCompany } from '../../context/CompanyContext';
 
 // ─── Fetch company data ───────────────────────────────────────────────────────
 const fetchCompany = (id) => apiClient.get(`/companies/${id}`).then((r) => r.data.data);
+
+const ALL_MODULES = [
+  { id: 'dashboard', label: 'Dashboard', desc: 'Core KPI overview & metrics', core: true },
+  { id: 'products', label: 'Products / Catalog', desc: 'Finished products, stock items, variants' },
+  { id: 'customers', label: 'Customers', desc: 'CRM, client accounts, ledgers' },
+  { id: 'suppliers', label: 'Suppliers', desc: 'Vendor procurement, dairy & ingredient vendors' },
+  { id: 'sales', label: 'Sales & Invoicing', desc: 'Quotations, sales orders, tax invoices' },
+  { id: 'purchases', label: 'Purchases & GRN', desc: 'Purchase orders, goods receipt notes, returns' },
+  { id: 'inventory', label: 'Inventory & Stock', desc: 'Warehouse stock, batches, FEFO expiry' },
+  { id: 'manufacturing', label: 'Manufacturing & Recipes', desc: 'BOM, batches, MRP, QC, churning planner' },
+  { id: 'billing', label: 'Billing / Retail POS', desc: 'Counter POS, barcode scanning, thermal receipts' },
+  { id: 'hr', label: 'HR / Payroll', desc: 'Employees, departments, attendance, payroll' },
+  { id: 'finance', label: 'Finance & Accounts', desc: 'Chart of accounts, journal entries, expenses' },
+  { id: 'reports', label: 'Reports & Analytics', desc: 'P&L, GST reports, inventory valuation' },
+  { id: 'documents', label: 'Documents', desc: 'Compliance certificates, licenses, files' },
+  { id: 'equipment', label: 'Equipment Registry', desc: 'Equipment asset tracking & service logs' },
+  { id: 'rentals', label: 'Rental Bookings', desc: 'Equipment rental, lease dispatch, return audits' },
+  { id: 'amc', label: 'AMC Contracts', desc: 'Annual maintenance contracts & scheduled visits' },
+  { id: 'projects', label: 'Projects', desc: 'Project milestones & job costing' },
+];
+
+const BUSINESS_TYPE_MODULE_MAP = {
+  'Ice Cream Manufacturing': ['dashboard', 'products', 'customers', 'suppliers', 'sales', 'purchases', 'inventory', 'manufacturing', 'billing', 'hr', 'finance', 'reports', 'documents'],
+  'Bakery': ['dashboard', 'products', 'customers', 'suppliers', 'sales', 'purchases', 'inventory', 'manufacturing', 'billing', 'hr', 'finance', 'reports', 'documents'],
+  'Equipment Rental': ['dashboard', 'products', 'customers', 'suppliers', 'inventory', 'sales', 'finance', 'reports', 'documents', 'equipment', 'rentals', 'amc'],
+  'Crane & Forklift': ['dashboard', 'products', 'customers', 'suppliers', 'purchases', 'inventory', 'billing', 'sales', 'finance', 'reports', 'documents', 'equipment', 'rentals', 'amc'],
+  'Retail Shop': ['dashboard', 'products', 'customers', 'suppliers', 'sales', 'purchases', 'inventory', 'billing', 'finance', 'reports', 'documents'],
+  'Supermarket': ['dashboard', 'products', 'customers', 'suppliers', 'sales', 'purchases', 'inventory', 'billing', 'finance', 'reports', 'documents'],
+  'Wholesale Distribution': ['dashboard', 'products', 'customers', 'suppliers', 'sales', 'purchases', 'inventory', 'finance', 'reports', 'documents'],
+  'Manufacturing Unit': ['dashboard', 'products', 'customers', 'suppliers', 'sales', 'purchases', 'inventory', 'manufacturing', 'hr', 'projects', 'finance', 'reports', 'documents'],
+  'Textile Business': ['dashboard', 'products', 'customers', 'suppliers', 'sales', 'purchases', 'inventory', 'manufacturing', 'hr', 'projects', 'finance', 'reports', 'documents'],
+  'Universal ERP': ['dashboard', 'products', 'customers', 'suppliers', 'sales', 'purchases', 'inventory', 'manufacturing', 'equipment', 'rentals', 'amc', 'hr', 'projects', 'billing', 'finance', 'reports', 'documents'],
+};
 
 export default function CompanySettingsPage() {
   const { user } = useAuth();
@@ -25,6 +59,12 @@ export default function CompanySettingsPage() {
     initialData: company,
   });
 
+  // Fetch tenant UI module configuration
+  const { data: uiConfig } = useQuery({
+    queryKey: ['ui-config'],
+    queryFn: () => apiClient.get('/setup/ui-config').then((r) => r.data?.data || null),
+  });
+
   const [form, setForm] = useState({
     name: '', address: '', city: '', state: '', pincode: '', country: 'India',
     gstin: '', pan: '', email: '', phone: '', website: '', 
@@ -36,6 +76,7 @@ export default function CompanySettingsPage() {
     invoice_format: 'Standard', quotation_format: 'Standard'
   });
 
+  const [enabledModules, setEnabledModules] = useState([]);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -68,7 +109,28 @@ export default function CompanySettingsPage() {
     }
   }, [fullCompany]);
 
+  // Sync enabled modules with uiConfig
+  useEffect(() => {
+    if (uiConfig?.enabled_modules) {
+      setEnabledModules(uiConfig.enabled_modules.map((m) => m.toLowerCase()));
+    }
+  }, [uiConfig]);
+
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const handleBusinessTypeChange = (newType) => {
+    set('business_type', newType);
+    if (BUSINESS_TYPE_MODULE_MAP[newType]) {
+      setEnabledModules(BUSINESS_TYPE_MODULE_MAP[newType]);
+    }
+  };
+
+  const toggleModule = (modId) => {
+    if (modId === 'dashboard') return; // core always
+    setEnabledModules((prev) =>
+      prev.includes(modId) ? prev.filter((m) => m !== modId) : [...prev, modId]
+    );
+  };
 
   const validate = () => {
     const e = {};
@@ -111,9 +173,15 @@ export default function CompanySettingsPage() {
           quotation_format: form.quotation_format
         }
       });
+
+      if (enabledModules.length > 0) {
+        await apiClient.put('/setup/ui-config', { enabled_modules: enabledModules });
+      }
       
-      setMessage({ type: 'success', text: 'Company details and print templates saved successfully!' });
+      setMessage({ type: 'success', text: 'Company profile and sidebar navigation updated successfully!' });
       qc.invalidateQueries({ queryKey: ['company-full'] });
+      qc.invalidateQueries({ queryKey: ['ui-config'] });
+      qc.invalidateQueries({ queryKey: ['manufacturing-config'] });
     } catch (err) {
       setMessage({ type: 'error', text: err?.response?.data?.errors?.[0] || 'Save failed' });
     } finally {
@@ -316,22 +384,31 @@ export default function CompanySettingsPage() {
             </select>
           </div>
           <Field label="Website" name="website" type="url" placeholder="https://example.com" />
-          <Select
-            label="Business Type"
-            name="business_type"
-            options={[
-              { value: '', label: '— Select Type —' },
-              { value: 'Retail Shop', label: 'Retail Shop' },
-              { value: 'Wholesale', label: 'Wholesale Distribution' },
-              { value: 'Restaurant', label: 'Restaurant / Cafe' },
-              { value: 'Spa', label: 'Spa / Salon' },
-              { value: 'Hospital', label: 'Hospital / Clinic' },
-              { value: 'School', label: 'School / College' },
-              { value: 'Manufacturing', label: 'Manufacturing' },
-              { value: 'Construction', label: 'Construction' },
-              { value: 'Crane & Forklift', label: 'Crane & Forklift' },
-            ]}
-          />
+          <div>
+            <label className="label">
+              Business Type
+              <span className="text-red-500 ml-1">*</span>
+            </label>
+            <select
+              value={form.business_type}
+              onChange={(e) => handleBusinessTypeChange(e.target.value)}
+              className="input-field"
+            >
+              <option value="">— Select Type —</option>
+              <option value="Ice Cream Manufacturing">Ice Cream Manufacturing & Creamery</option>
+              <option value="Bakery">Bakery & Food Processing</option>
+              <option value="Equipment Rental">Equipment & Heavy Machinery Rental</option>
+              <option value="Crane & Forklift">Crane, Forklift & Rigging Fleet</option>
+              <option value="Manufacturing Unit">Discrete Manufacturing Unit</option>
+              <option value="Textile Business">Textile & Apparel Business</option>
+              <option value="Retail Shop">Retail Store / Parlour</option>
+              <option value="Supermarket">Supermarket & Grocery</option>
+              <option value="Wholesale Distribution">Wholesale Distribution</option>
+              <option value="Restaurant">Restaurant / Cafe</option>
+              <option value="Repair Shop">Repair & Service Shop</option>
+              <option value="Universal ERP">Universal ERP (All Modules Enabled)</option>
+            </select>
+          </div>
 
           <Select
             label="Business Catalog Mode"
@@ -343,9 +420,76 @@ export default function CompanySettingsPage() {
             ]}
           />
         </div>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 bg-slate-50 dark:bg-slate-800/40 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
-          <strong>Catalog Mode Explanation:</strong> Choosing <em>Products Only</em> restricts catalog features to physical inventory trackables. <em>Services Only</em> optimizes forms, terms, and billing units for pure service-oriented models. <em>Products + Services</em> enables managing both simultaneously across inventory and POS billing.
-        </p>
+
+        {/* ── Industry-Based Adaptive Navigation Modules Card ── */}
+        <div className="mt-4 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/40 bg-indigo-50/50 dark:bg-indigo-950/20">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-2">
+              <FiSliders className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                Sidebar Navigation & Active Modules
+              </h4>
+            </div>
+            {form.business_type === 'Ice Cream Manufacturing' ? (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                🍦 Artisanal Creamery (Rentals Hidden)
+              </span>
+            ) : form.business_type === 'Equipment Rental' || form.business_type === 'Crane & Forklift' ? (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                🚜 Rental & Fleet (Manufacturing Hidden)
+              </span>
+            ) : (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300">
+                {form.business_type || 'Custom Modules'}
+              </span>
+            )}
+          </div>
+
+          <p className="text-xs text-slate-600 dark:text-slate-400 mb-3 leading-relaxed">
+            Sidebar navigation automatically adapts to your company industry. For instance,{' '}
+            <strong>Ice Cream Creameries</strong> focus on recipes, milk/cream batches, FEFO expiry, POS & wholesale (hiding equipment rentals).{' '}
+            <strong>Equipment Rental</strong> businesses focus on asset registries, rental bookings & AMC contracts (hiding manufacturing).
+            You can toggle any module below to tailor your team's sidebar navigation.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-2 border-t border-indigo-100 dark:border-indigo-900/40">
+            {ALL_MODULES.map((mod) => {
+              const isEnabled = mod.core || enabledModules.includes(mod.id);
+              return (
+                <div
+                  key={mod.id}
+                  onClick={() => !mod.core && toggleModule(mod.id)}
+                  className={`p-2.5 rounded-lg border text-left flex items-start space-x-2.5 transition-all ${
+                    mod.core
+                      ? 'bg-slate-100/80 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 cursor-default opacity-80'
+                      : isEnabled
+                      ? 'bg-white dark:bg-slate-900 border-indigo-300 dark:border-indigo-600 shadow-sm cursor-pointer hover:border-indigo-500'
+                      : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 opacity-60 cursor-pointer hover:opacity-100'
+                  }`}
+                >
+                  <div
+                    className={`w-4 h-4 mt-0.5 rounded flex items-center justify-center flex-shrink-0 text-xs font-bold ${
+                      isEnabled
+                        ? 'bg-indigo-600 text-white'
+                        : 'border border-slate-400 dark:border-slate-600 text-transparent'
+                    }`}
+                  >
+                    {isEnabled && <FiCheck className="w-3 h-3" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className={`text-xs font-bold leading-tight ${isEnabled ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 line-through'}`}>
+                      {mod.label}
+                      {mod.core && <span className="ml-1 text-[10px] font-normal text-slate-400">(Always On)</span>}
+                    </p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                      {mod.desc}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
         <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200 mt-6 mb-3 flex items-center space-x-2">
           <FiMapPin className="w-4 h-4" />

@@ -244,6 +244,7 @@ def login():
                 "name": user.name,
                 "email": user.email,
                 "role": role_name,
+                "is_superadmin": bool(user.is_superadmin),
                 "theme_preference": user.theme_preference,
                 "branch_id": user.branch_id
             },

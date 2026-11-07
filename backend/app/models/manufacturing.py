@@ -1,4 +1,4 @@
-﻿from app.extensions import db
+from app.extensions import db
 from app.models.base import BaseModel
 
 
@@ -39,6 +39,7 @@ class BomHeader(BaseModel):
     standard_cost = db.Column(db.Numeric(14, 2), default=0.00)
     overhead_cost = db.Column(db.Numeric(14, 2), default=0.00)
     total_setup_time_mins = db.Column(db.Integer, default=0)
+    base_quantity = db.Column(db.Numeric(12, 4), default=1.0000, nullable=False)  # Output yield / batch size this formula produces
     # Bakery / process-manufacturing fields: baker's % scaling, dough yield and
     # bake loss are the bakery equivalents of standard yield & waste.
     hydration_pct = db.Column(db.Numeric(8, 4), default=0.0000)  # water as % of flour
@@ -53,6 +54,7 @@ class BomHeader(BaseModel):
 
     def to_dict(self):
         data = super().to_dict()
+        data['base_quantity'] = float(self.base_quantity) if self.base_quantity is not None else 1.0
         data['items'] = [i.to_dict() for i in self.items if not i.is_deleted]
         data['byproducts'] = [b.to_dict() for b in self.byproducts if not b.is_deleted]
         data['routing_operations'] = [r.to_dict() for r in self.routing_operations if not r.is_deleted]

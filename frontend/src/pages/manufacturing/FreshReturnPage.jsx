@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FiTruck, FiPlus } from 'react-icons/fi';
 import apiClient from '../../api/client';
@@ -60,7 +60,7 @@ export default function FreshReturnPage() {
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {fefo.map((b) => (
               <tr key={b.batch_id}>
-                <td className="py-2 pr-3 font-semibold text-slate-800 dark:text-white">Product #{b.product_id}</td>
+                <td className="py-2 pr-3 font-semibold text-slate-800 dark:text-white">{b.product_name || `Product #${b.product_id}`}</td>
                 <td className="py-2 pr-3 text-slate-600 dark:text-slate-300">{b.batch_no}</td>
                 <td className="py-2 pr-3 text-slate-600 dark:text-slate-300">{b.quantity}</td>
                 <td className="py-2 pr-3 text-slate-600 dark:text-slate-300">{b.expiry_date || '-'}</td>

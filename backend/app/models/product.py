@@ -199,6 +199,23 @@ class PurchaseOrder(BaseModel):
     
     items = db.relationship('PurchaseItem', backref='purchase_order', lazy='dynamic', cascade="all, delete-orphan")
 
+    def to_dict(self):
+        data = super().to_dict()
+        if hasattr(self, 'supplier') and self.supplier:
+            data['supplier'] = {
+                'id': self.supplier.id,
+                'name': self.supplier.name,
+                'phone': self.supplier.phone,
+                'email': self.supplier.email or '',
+                'gstin': self.supplier.gstin or '',
+                'contact_person': self.supplier.contact_person or ''
+            }
+            data['supplier_name'] = self.supplier.name
+        else:
+            data['supplier'] = None
+            data['supplier_name'] = 'N/A'
+        return data
+
 
 class PurchaseItem(BaseModel):
     __tablename__ = 'purchase_items'
@@ -213,6 +230,30 @@ class PurchaseItem(BaseModel):
     gst_rate = db.Column(db.Numeric(5, 2), default=18.00)
     gst_amount = db.Column(db.Numeric(10, 2), default=0.00)
     total_amount = db.Column(db.Numeric(10, 2), default=0.00)
+
+    product = db.relationship('Product', foreign_keys=[product_id])
+
+    def to_dict(self):
+        data = super().to_dict()
+        rate_val = float(self.rate) if self.rate is not None else 0.0
+        data['unit_price'] = rate_val
+        data['rate'] = rate_val
+        data['total'] = float(self.total_amount) if self.total_amount is not None else (float(self.quantity or 0) * rate_val)
+        if self.product:
+            unit_name = ''
+            if hasattr(self.product, 'unit') and self.product.unit:
+                unit_name = getattr(self.product.unit, 'short_name', str(self.product.unit))
+            data['product'] = {
+                'id': self.product.id,
+                'name': self.product.name,
+                'sku': self.product.sku or '',
+                'unit': unit_name
+            }
+            data['product_name'] = self.product.name
+        else:
+            data['product'] = {'id': self.product_id, 'name': f"Item #{self.product_id}", 'unit': ''}
+            data['product_name'] = f"Item #{self.product_id}"
+        return data
 
 
 class GoodsReceiptNote(BaseModel):

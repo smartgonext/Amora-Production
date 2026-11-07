@@ -47,6 +47,7 @@ def fefo_pick_list(tenant_id, product_id=None, near_expiry_days=3):
     ).order_by(ProductBatch.expiry_date.asc(), ProductBatch.id.asc()).all()
 
     result = []
+    prod_map = {p.id: p.name for p in products.all()}
     for b in batches:
         status = 'no_expiry'
         diff = None
@@ -61,6 +62,7 @@ def fefo_pick_list(tenant_id, product_id=None, near_expiry_days=3):
         result.append({
             'batch_id': b.id,
             'product_id': b.product_id,
+            'product_name': prod_map.get(b.product_id, f'Product #{b.product_id}'),
             'batch_no': b.batch_no,
             'quantity': b.quantity,
             'mfg_date': b.mfg_date.isoformat() if b.mfg_date else None,

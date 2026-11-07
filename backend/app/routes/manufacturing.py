@@ -1,7 +1,10 @@
-﻿from flask import Blueprint, request, jsonify
+from decimal import Decimal
+from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.extensions import db
 from app.models.user import User
+from app.models.product import Product
+from app.models.tenant import Company
 from app.models.manufacturing import (
     TenantManufacturingConfig, BomHeader, BomItem, BomByproduct,
     WorkCenter, Machine, BomRoutingOperation, SupplierItemMapping,
@@ -9,14 +12,15 @@ from app.models.manufacturing import (
     ProductionMaterialIssue, QualityInspection, JobWorkOrder,
 )
 from app.services.manufacturing_service import (
+    as_decimal,
     compute_bom_costs, create_bom, revise_bom, get_active_bom_for_product,
     run_mrp, generate_purchase_orders, create_work_order, release_work_order,
     complete_operation, production_receipt, complete_work_order,
     compute_operation_cost, create_quality_inspection, create_job_work_order,
-list_uom_conversions, create_uom_conversion, delete_uom_conversion,
+    list_uom_conversions, create_uom_conversion, delete_uom_conversion,
     record_material_consumption, record_material_return, compute_work_order_analysis,
     record_batch_lineage, list_batch_lineage,
-    receive_job_work, post_stock_ledger,
+    receive_job_work, post_stock_ledger, raw_material_rate,
 )
 
 
@@ -46,7 +50,11 @@ def get_manufacturing_config():
         tenant_id=user.tenant_id, is_deleted=False).first()
     if not cfg:
         return error("No manufacturing config for this tenant", 404)
-    return jsonify({"data": cfg.to_dict(), "meta": None, "errors": None}), 200
+    data = cfg.to_dict()
+    company = Company.query.filter_by(id=user.company_id, tenant_id=user.tenant_id).first() if user.company_id else None
+    if company:
+        data['business_type'] = company.business_type
+    return jsonify({"data": data, "meta": None, "errors": None}), 200
 
 
 @manufacturing_bp.route('/config', methods=['POST', 'PUT'])
@@ -116,6 +124,94 @@ def get_bom(bom_id):
     return jsonify({"data": data, "meta": None, "errors": None}), 200
 
 
+@manufacturing_bp.route('/boms/<int:bom_id>/scale', methods=['GET'])
+@jwt_required()
+def scale_bom_endpoint(bom_id):
+    """Auto-scale all raw materials for a BOM given a planned production quantity.
+    Returns proportional raw materials, stock feasibility, shortage, and cost.
+    """
+    user = get_current_user()
+    bom = BomHeader.query.filter_by(id=bom_id, tenant_id=user.tenant_id, is_deleted=False).first()
+    if not bom:
+        return error("BOM not found", 404)
+
+    qty_str = request.args.get('quantity', '1')
+    try:
+        production_qty = Decimal(str(qty_str))
+        if production_qty <= 0:
+            production_qty = Decimal('1')
+    except Exception:
+        production_qty = Decimal('1')
+
+    finished_prod = db.session.get(Product, bom.product_id)
+    items = []
+    total_material_cost = Decimal('0')
+    has_shortage = False
+
+    for bi in bom.items:
+        if bi.is_alternate:
+            continue
+        raw_prod = db.session.get(Product, bi.item_id)
+        if not raw_prod:
+            continue
+
+        base_batch_qty = Decimal(str(bom.base_quantity or 1))
+        if base_batch_qty <= Decimal('0'):
+            base_batch_qty = Decimal('1')
+        scale_factor = production_qty / base_batch_qty
+        waste_mult = Decimal('1') + (Decimal(str(bi.waste_pct or 0)) / Decimal('100'))
+        base_item_qty = Decimal(str(bi.qty_required or 1))
+        required_qty = base_item_qty * scale_factor * waste_mult
+
+        current_stock = Decimal(str(raw_prod.current_stock or 0))
+        shortage_qty = max(Decimal('0'), required_qty - current_stock)
+        is_shortage = shortage_qty > 0
+        if is_shortage:
+            has_shortage = True
+
+        rate = raw_material_rate(user.tenant_id, raw_prod.id)
+        line_cost = required_qty * rate
+        total_material_cost += line_cost
+
+        items.append({
+            'item_id': raw_prod.id,
+            'name': raw_prod.name,
+            'sku': raw_prod.sku or '',
+            'uom': bi.uom or raw_prod.unit_of_measure or 'kg',
+            'base_qty_in_recipe': float(base_item_qty),
+            'base_qty_per_unit': float(round(base_item_qty / base_batch_qty, 4)),
+            'waste_pct': float(bi.waste_pct or 0),
+            'required_qty': float(round(required_qty, 3)),
+            'current_stock': float(current_stock),
+            'shortage_qty': float(round(shortage_qty, 3)),
+            'status': 'shortage' if is_shortage else 'available',
+            'rate': float(rate),
+            'estimated_cost': float(round(line_cost, 2)),
+        })
+
+    base_batch_qty = Decimal(str(bom.base_quantity or 1))
+    if base_batch_qty <= Decimal('0'):
+        base_batch_qty = Decimal('1')
+
+    return jsonify({
+        "data": {
+            "bom_id": bom.id,
+            "bom_name": bom.name,
+            "version": bom.version,
+            "product_id": finished_prod.id if finished_prod else None,
+            "product_name": finished_prod.name if finished_prod else 'N/A',
+            "base_quantity": float(base_batch_qty),
+            "planned_qty": float(production_qty),
+            "items": items,
+            "total_material_cost": float(round(total_material_cost, 2)),
+            "unit_material_cost": float(round(total_material_cost / production_qty, 2)) if production_qty > 0 else 0,
+            "has_shortage": has_shortage,
+        },
+        "meta": None,
+        "errors": None
+    }), 200
+
+
 @manufacturing_bp.route('/boms/<int:bom_id>', methods=['PUT'])
 @jwt_required()
 def update_bom(bom_id):
@@ -125,10 +221,49 @@ def update_bom(bom_id):
         return error("BOM not found", 404)
     data = request.get_json() or {}
     for field in ['name', 'version', 'status', 'standard_cost', 'overhead_cost',
-                  'total_setup_time_mins', 'effective_start_date', 'effective_end_date', 'notes',
+                  'total_setup_time_mins', 'base_quantity', 'effective_start_date', 'effective_end_date', 'notes',
                   'hydration_pct', 'dough_yield_pct', 'bake_loss_pct']:
         if field in data:
             setattr(bom, field, data[field])
+
+    if 'product_id' in data and data['product_id']:
+        bom.product_id = int(data['product_id'])
+
+    # Update components if provided
+    if 'items' in data:
+        for existing in list(bom.items):
+            db.session.delete(existing)
+        for item in data.get('items', []) or []:
+            if not item.get('item_id'):
+                continue
+            db.session.add(BomItem(
+                bom_id=bom.id,
+                item_id=int(item.get('item_id')),
+                qty_required=as_decimal(item.get('qty_required', 1)),
+                uom=item.get('uom'),
+                waste_pct=as_decimal(item.get('waste_pct', 0)),
+                is_alternate=bool(item.get('is_alternate', False)),
+                parent_bom_item_id=int(item.get('parent_bom_item_id')) if item.get('parent_bom_item_id') else None,
+            ))
+
+    # Update routing operations if provided
+    if 'routing_operations' in data:
+        for existing_op in list(bom.routing_operations):
+            db.session.delete(existing_op)
+        for op in data.get('routing_operations', []) or []:
+            if not op.get('operation_name'):
+                continue
+            db.session.add(BomRoutingOperation(
+                bom_id=bom.id,
+                operation_sequence=int(op.get('operation_sequence') or 10),
+                operation_name=op.get('operation_name'),
+                work_center_id=int(op.get('work_center_id')) if op.get('work_center_id') else None,
+                machine_id=int(op.get('machine_id')) if op.get('machine_id') else None,
+                setup_time_mins=int(op.get('setup_time_mins') or 0),
+                processing_time_per_unit_mins=as_decimal(op.get('processing_time_per_unit_mins', 0)),
+                labor_hours_per_unit=as_decimal(op.get('labor_hours_per_unit', 0)),
+            ))
+
     db.session.commit()
     return jsonify({"data": db.session.get(BomHeader, bom.id).to_dict(), "meta": None, "errors": None}), 200
 
@@ -361,8 +496,12 @@ def create_work_order_endpoint():
     user = get_current_user()
     if not user:
         return error("User not found", 404)
+    data = request.get_json() or {}
     try:
-        wo = create_work_order(user.tenant_id, user.company_id, request.get_json() or {})
+        wo = create_work_order(user.tenant_id, user.company_id, data)
+        if data.get('auto_release'):
+            wo = release_work_order(wo, warehouse_id=data.get('warehouse_id'),
+                                    company_id=data.get('company_id', user.company_id))
     except ValueError as e:
         return error(str(e))
     return jsonify({"data": wo.to_dict(), "meta": None, "errors": None}), 201

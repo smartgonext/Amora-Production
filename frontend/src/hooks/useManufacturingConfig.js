@@ -39,18 +39,22 @@ export function useManufacturingConfig() {
  * - Falls back to the generic set when no config exists (so legacy tenants still
  *   get access), which keeps the engine usable while remaining adaptive.
  */
-export function buildManufacturingMenu(config, allItems) {
+export function buildManufacturingMenu(config, allItems, businessType = '') {
   if (!config) {
     return []; // hide everything for non-mfg tenants
   }
   const features = (config.enabled_features || []).map((f) => String(f).toLowerCase());
   const type = (config.mfg_type || '').toLowerCase();
+  const bType = String(businessType || config.business_type || '').toLowerCase();
+
+  const isBakery = bType.includes('bake') || bType.includes('bakery');
+  const isIceCream = bType.includes('ice cream') || bType.includes('dairy') || bType.includes('creamery');
 
   const bomLabel =
     config.bom_label ||
-    (type === 'process' ? 'Recipe' : type === 'textile' ? 'Variant Matrix' : 'BOM & Routing');
+    (isIceCream ? 'Recipe / Formula' : isBakery ? 'Recipe / Yield' : type === 'process' ? 'Recipe' : type === 'textile' ? 'Variant Matrix' : 'BOM & Routing');
   const woLabel =
-    type === 'process' ? 'Batches' : type === 'textile' ? 'Cutting / Stitching' : 'Work Orders';
+    isIceCream ? 'Batch Production' : isBakery ? 'Bake Batches' : type === 'process' ? 'Batches' : type === 'textile' ? 'Cutting / Stitching' : 'Work Orders';
 
   const items = [
     { path: '/manufacturing/materials', label: 'Raw Materials', icon: FiPackage },
@@ -63,23 +67,26 @@ export function buildManufacturingMenu(config, allItems) {
   if (features.includes('job_work') || features.includes('subcontracting')) {
     items.push({ path: '/manufacturing/job-work', label: 'Job Work', icon: FiTruck });
   }
+
   if (features.includes('qc') || type === 'process') {
-    items.push({ path: '/manufacturing/qc', label: 'Quality Control', icon: FiCheckCircle });
+    items.push({
+      path: '/manufacturing/qc',
+      label: isIceCream ? 'Quality & Cold-Chain QC' : 'Quality Control',
+      icon: FiCheckCircle,
+    });
   }
-  if (features.includes('baker_pct_scaling')) {
-    items.push({ path: '/manufacturing/recipe-scaler', label: 'Recipe Scaler', icon: FiPercent });
-  }
-  if (features.includes('freshness') || type === 'process') {
+
+  // ⚠️ ONLY SHOW BAKERY-SPECIFIC MODULES IF THE REGISTERED BUSINESS TYPE IS ACTUALLY A BAKERY!
+  // If business type is "Ice Cream Manufacturing" or other manufacturing, these stay hidden!
+  if (isBakery) {
+    if (features.includes('baker_pct_scaling')) {
+      items.push({ path: '/manufacturing/recipe-scaler', label: 'Recipe Scaler', icon: FiPercent });
+    }
     items.push({ path: '/manufacturing/bake-planner', label: 'Bake Planner', icon: FiCalendar });
-  }
-  if (features.includes('fefo') || features.includes('freshness')) {
     items.push({ path: '/manufacturing/fresh-returns', label: 'Fresh Returns & Delivery', icon: FiRefreshCw });
-  }
-  if (features.includes('haccp') || type === 'process') {
-    items.push({ path: '/manufacturing/bakery-qc', label: 'HACCP QC', icon: FiShield });
-  }
-  if (type === 'process' || features.includes('freshness')) {
+    items.push({ path: '/manufacturing/bakery-qc', label: 'Bakery HACCP QC', icon: FiShield });
     items.push({ path: '/manufacturing/day-cost', label: 'Bake-Day Cost', icon: FiBarChart2 });
   }
+
   return items;
 }

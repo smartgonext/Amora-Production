@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.extensions import db
 from app.models.user import User
+from app.models.customer import Supplier
 from app.models.product import (
     PurchaseOrder, PurchaseItem, Product, 
     GoodsReceiptNote, GRNItem, PurchaseReturn, PurchaseReturnItem
@@ -40,10 +41,26 @@ def get_purchases():
                 db.session.query(Product.id).filter_by(tenant_id=user.tenant_id, is_raw_material=True)
             )))
             
-    purchases = query.all()
+    purchases = query.order_by(PurchaseOrder.order_date.desc()).all()
+    results = []
+    for po in purchases:
+        d = po.to_dict()
+        if (not d.get('supplier') or d.get('supplier_name') == 'N/A') and po.supplier_id:
+            supp = db.session.get(Supplier, po.supplier_id)
+            if supp:
+                d['supplier'] = {
+                    'id': supp.id,
+                    'name': supp.name,
+                    'phone': supp.phone,
+                    'email': supp.email or '',
+                    'gstin': supp.gstin or ''
+                }
+                d['supplier_name'] = supp.name
+        results.append(d)
+
     return jsonify({
-        "data": [po.to_dict() for po in purchases],
-        "meta": {"count": len(purchases)},
+        "data": results,
+        "meta": {"count": len(results)},
         "errors": None
     }), 200
 
@@ -260,8 +277,99 @@ def get_purchase(po_id):
         
     items = PurchaseItem.query.filter_by(purchase_order_id=po.id, tenant_id=user.tenant_id).all()
     po_data = po.to_dict()
-    po_data['items'] = [item.to_dict() for item in items]
+    if (not po_data.get('supplier') or po_data.get('supplier_name') == 'N/A') and po.supplier_id:
+        supp = db.session.get(Supplier, po.supplier_id)
+        if supp:
+            po_data['supplier'] = {
+                'id': supp.id,
+                'name': supp.name,
+                'phone': supp.phone,
+                'email': supp.email or '',
+                'gstin': supp.gstin or ''
+            }
+            po_data['supplier_name'] = supp.name
+
+    item_list = []
+    for item in items:
+        it_dict = item.to_dict()
+        if (not it_dict.get('product') or it_dict.get('product', {}).get('name', '').startswith('Item #')) and item.product_id:
+            prod = db.session.get(Product, item.product_id)
+            if prod:
+                unit_code = prod.unit.short_name if hasattr(prod, 'unit') and prod.unit else 'Units'
+                it_dict['product'] = {
+                    'id': prod.id,
+                    'name': prod.name,
+                    'sku': prod.sku or '',
+                    'unit': unit_code
+                }
+                it_dict['product_name'] = prod.name
+        # Ensure unit_price and rate are non-null
+        if 'unit_price' not in it_dict or it_dict['unit_price'] is None:
+            it_dict['unit_price'] = float(item.rate or 0)
+        if 'rate' not in it_dict or it_dict['rate'] is None:
+            it_dict['rate'] = float(item.rate or 0)
+        it_dict['line_total'] = float(it_dict.get('total') or (float(item.quantity or 0) * it_dict['unit_price']))
+        item_list.append(it_dict)
+
+    po_data['items'] = item_list
     return jsonify({"data": po_data, "errors": None}), 200
+
+@purchases_bp.route('/<int:po_id>', methods=['PUT'])
+@jwt_required()
+def update_purchase(po_id):
+    user = get_current_user()
+    po = PurchaseOrder.query.filter_by(id=po_id, tenant_id=user.tenant_id, is_deleted=False).first()
+    if not po:
+        return jsonify({"data": None, "errors": ["Purchase order not found"]}), 404
+        
+    data = request.get_json() or {}
+    if 'status' in data and data['status']:
+        po.status = data['status']
+    if 'notes' in data:
+        po.notes = data['notes']
+    if 'supplier_id' in data and data['supplier_id']:
+        po.supplier_id = int(data['supplier_id'])
+    if 'expected_date' in data and data['expected_date']:
+        try:
+            po.expected_date = datetime.fromisoformat(str(data['expected_date']))
+        except Exception:
+            pass
+
+    if 'items' in data and isinstance(data['items'], list) and len(data['items']) > 0:
+        PurchaseItem.query.filter_by(purchase_order_id=po.id, tenant_id=user.tenant_id).delete()
+        subtotal = Decimal('0')
+        for item in data['items']:
+            product_id = item.get('product_id') or item.get('item_id')
+            if not product_id:
+                continue
+            qty = Decimal(str(item.get('quantity') or item.get('qty') or 1))
+            rate = Decimal(str(item.get('unit_price') if item.get('unit_price') is not None else item.get('rate') or 0))
+            disc_pct = Decimal(str(item.get('discount_percent') or 0))
+            gst_pct = Decimal(str(item.get('gst_rate') if item.get('gst_rate') is not None else item.get('tax_percent') or 0))
+            line_taxable = qty * rate * (1 - disc_pct / 100)
+            line_gst = line_taxable * gst_pct / 100
+            line_tot = line_taxable + line_gst
+            subtotal += line_tot
+            
+            line = PurchaseItem(
+                tenant_id=user.tenant_id,
+                purchase_order_id=po.id,
+                product_id=int(product_id),
+                quantity=int(qty),
+                rate=rate,
+                discount_percent=disc_pct,
+                discount_amount=qty * rate * disc_pct / 100,
+                gst_rate=gst_pct,
+                gst_amount=line_gst,
+                total_amount=line_tot
+            )
+            db.session.add(line)
+        po.total_amount = float(subtotal)
+    elif 'total_amount' in data and data['total_amount'] is not None:
+        po.total_amount = float(data['total_amount'])
+    
+    db.session.commit()
+    return get_purchase(po.id)
 
 @purchases_bp.route('/<int:po_id>', methods=['DELETE'])
 @jwt_required()

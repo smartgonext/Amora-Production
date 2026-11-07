@@ -34,8 +34,11 @@ export function useUiConfig() {
    * disappears while the config resolves.
    */
   const isModuleEnabled = (moduleCode) => {
+    if (!moduleCode) return true;
+    const code = String(moduleCode).toLowerCase();
+    if (code === 'dashboard') return true;
     if (!enabledModules) return true;
-    return enabledModules.has(String(moduleCode).toLowerCase());
+    return enabledModules.has(code);
   };
 
   return {

@@ -4,7 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FiShoppingBag, FiSearch, FiEye, FiPlus, FiX, 
-  FiCalendar, FiBriefcase, FiTag, FiTruck, FiRotateCcw, FiPercent 
+  FiCalendar, FiBriefcase, FiTag, FiTruck, FiRotateCcw, FiPercent, 
+  FiEdit2, FiTrash2, FiCheckCircle, FiAlertCircle 
 } from 'react-icons/fi';
 import apiClient from '../../api/client';
 import { formatINR } from '../../utils/format';
@@ -19,6 +20,18 @@ export default function PurchasesPage({ isRawMaterialOnly }) {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedPo, setSelectedPo] = useState(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    id: null,
+    po_number: '',
+    supplier_id: '',
+    status: 'Draft',
+    product_id: '',
+    quantity: '',
+    rate: '',
+    notes: ''
+  });
 
   // Form states
   const [supplierId, setSupplierId] = useState('');
@@ -171,6 +184,76 @@ export default function PurchasesPage({ isRawMaterialOnly }) {
     }
   });
 
+  const updatePoMutation = useMutation({
+    mutationFn: async ({ id, ...payload }) => {
+      const response = await apiClient.put(`/purchases/${id}`, payload);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success('Purchase Order updated successfully!');
+      setIsEditOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['purchases'] });
+      queryClient.invalidateQueries({ queryKey: ['purchase-detail'] });
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.errors?.[0] || 'Failed to update Purchase Order');
+    }
+  });
+
+  const deletePoMutation = useMutation({
+    mutationFn: async (id) => {
+      const response = await apiClient.delete(`/purchases/${id}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success('Purchase Order deleted successfully!');
+      setIsDeleteOpen(false);
+      setIsDetailOpen(false);
+      setSelectedPo(null);
+      queryClient.invalidateQueries({ queryKey: ['purchases'] });
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.errors?.[0] || 'Failed to delete Purchase Order');
+    }
+  });
+
+  const handleOpenEdit = async (po) => {
+    setSelectedPo(po);
+    try {
+      const res = await apiClient.get(`/purchases/${po.id}`);
+      const data = res.data?.data;
+      const firstItem = data?.items?.[0];
+      setEditForm({
+        id: po.id,
+        po_number: po.po_number,
+        supplier_id: data?.supplier_id || po.supplier_id || '',
+        status: data?.status || po.status || 'Draft',
+        product_id: firstItem?.product_id || '',
+        quantity: firstItem?.quantity || '',
+        rate: firstItem?.rate || firstItem?.unit_price || '',
+        notes: data?.notes || po.notes || ''
+      });
+      setIsEditOpen(true);
+    } catch {
+      setEditForm({
+        id: po.id,
+        po_number: po.po_number,
+        supplier_id: po.supplier_id || '',
+        status: po.status || 'Draft',
+        product_id: '',
+        quantity: '',
+        rate: '',
+        notes: po.notes || ''
+      });
+      setIsEditOpen(true);
+    }
+  };
+
+  const handleOpenDelete = (po) => {
+    setSelectedPo(po);
+    setIsDeleteOpen(true);
+  };
+
   const createReturnMutation = useMutation({
     mutationFn: async (payload) => {
       const response = await apiClient.post('/purchases/returns', payload);
@@ -305,7 +388,7 @@ export default function PurchasesPage({ isRawMaterialOnly }) {
             className={`flex items-center gap-2 pb-4 font-semibold border-b-2 transition-all ${
               activeTab === tab.id
                 ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
             }`}
           >
             <tab.icon />
@@ -319,109 +402,176 @@ export default function PurchasesPage({ isRawMaterialOnly }) {
         
         {activeTab === 'orders' && (
           <div className="overflow-x-auto text-sm">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase text-xs font-bold tracking-wider">
-                  <th className="py-4 px-6">PO Number</th>
-                  <th className="py-4 px-6">Order Date</th>
-                  <th className="py-4 px-6">Total Amount</th>
-                  <th className="py-4 px-6">Status</th>
-                  <th className="py-4 px-6 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                {purchases.map((po) => (
-                  <tr key={po.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
-                    <td className="py-4 px-6 font-semibold font-mono text-slate-900 dark:text-white">{po.po_number}</td>
-                    <td className="py-4 px-6">{new Date(po.order_date).toLocaleDateString('en-IN')}</td>
-                    <td className="py-4 px-6 font-bold text-slate-900 dark:text-white">{formatINR(po.total_amount)}</td>
-                    <td className="py-4 px-6">
-                      <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-bold text-xs">{po.status}</span>
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      <button onClick={() => { setSelectedPo(po); setIsDetailOpen(true); }} className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400">
-                        <FiEye className="text-lg" />
-                      </button>
-                    </td>
+            {purchases.length === 0 ? (
+              <div className="py-16 text-center text-slate-500 dark:text-slate-400">
+                <FiShoppingBag className="w-12 h-12 mx-auto mb-3 opacity-40 text-slate-400" />
+                <p className="font-semibold text-base text-slate-700 dark:text-slate-200">No purchase orders found</p>
+                <p className="text-xs text-slate-400 mt-1">Click "+ Create Purchase Order" above to place an order</p>
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 uppercase text-xs font-bold tracking-wider">
+                    <th className="py-4 px-6">PO Number</th>
+                    <th className="py-4 px-6">Supplier</th>
+                    <th className="py-4 px-6">Order Date</th>
+                    <th className="py-4 px-6">Total Amount</th>
+                    <th className="py-4 px-6">Status</th>
+                    <th className="py-4 px-6 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                  {purchases.map((po) => {
+                    const suppName = po.supplier?.name || po.supplier_name || 'Amora Supplier';
+                    return (
+                      <tr key={po.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
+                        <td className="py-4 px-6 font-semibold font-mono text-slate-900 dark:text-white">{po.po_number}</td>
+                        <td className="py-4 px-6 font-medium text-slate-800 dark:text-slate-200">{suppName}</td>
+                        <td className="py-4 px-6">{new Date(po.order_date).toLocaleDateString('en-IN')}</td>
+                        <td className="py-4 px-6 font-bold text-slate-900 dark:text-white">{formatINR(po.total_amount)}</td>
+                        <td className="py-4 px-6">
+                          <span className={`px-2.5 py-0.5 rounded text-xs font-extrabold uppercase ${
+                            po.status === 'Received' || po.status === 'Completed'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                              : po.status === 'Confirmed'
+                              ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                              : po.status === 'Cancelled'
+                              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                          }`}>
+                            {po.status}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <div className="flex items-center justify-end space-x-1.5">
+                            <button 
+                              onClick={() => { setSelectedPo(po); setIsDetailOpen(true); }} 
+                              title="View Details"
+                              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                            >
+                              <FiEye className="text-base" />
+                            </button>
+                            <button 
+                              onClick={() => handleOpenEdit(po)} 
+                              title="Edit PO"
+                              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                            >
+                              <FiEdit2 className="text-base" />
+                            </button>
+                            <button 
+                              onClick={() => handleOpenDelete(po)} 
+                              title="Delete PO"
+                              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                            >
+                              <FiTrash2 className="text-base" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
 
         {activeTab === 'grns' && (
           <div className="overflow-x-auto text-sm">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase text-xs font-bold tracking-wider">
-                  <th className="py-4 px-6">GRN Number</th>
-                  <th className="py-4 px-6">Received Date</th>
-                  <th className="py-4 px-6">Linked PO ID</th>
-                  <th className="py-4 px-6">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                {grns.map((g) => (
-                  <tr key={g.id}>
-                    <td className="py-4 px-6 font-mono text-white">{g.grn_number}</td>
-                    <td className="py-4 px-6">{new Date(g.received_date).toLocaleDateString('en-IN')}</td>
-                    <td className="py-4 px-6 font-mono text-indigo-400">#{g.purchase_order_id || 'N/A'}</td>
-                    <td className="py-4 px-6 text-emerald-400">{g.status}</td>
+            {grns.length === 0 ? (
+              <div className="py-16 text-center text-slate-500 dark:text-slate-400">
+                <FiTruck className="w-12 h-12 mx-auto mb-3 opacity-40 text-slate-400" />
+                <p className="font-semibold text-base text-slate-700 dark:text-slate-200">No goods receipt notes recorded</p>
+                <p className="text-xs text-slate-400 mt-1">Receive deliveries against purchase orders to generate GRNs</p>
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 uppercase text-xs font-bold tracking-wider">
+                    <th className="py-4 px-6">GRN Number</th>
+                    <th className="py-4 px-6">Received Date</th>
+                    <th className="py-4 px-6">Linked PO ID</th>
+                    <th className="py-4 px-6">Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                  {grns.map((g) => (
+                    <tr key={g.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
+                      <td className="py-4 px-6 font-mono font-semibold text-slate-900 dark:text-white">{g.grn_number}</td>
+                      <td className="py-4 px-6">{new Date(g.received_date).toLocaleDateString('en-IN')}</td>
+                      <td className="py-4 px-6 font-mono text-indigo-600 dark:text-indigo-400">#{g.purchase_order_id || 'N/A'}</td>
+                      <td className="py-4 px-6 text-emerald-600 dark:text-emerald-400 font-semibold">{g.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
 
         {activeTab === 'returns' && (
           <div className="overflow-x-auto text-sm">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase text-xs font-bold tracking-wider">
-                  <th className="py-4 px-6">Return Number</th>
-                  <th className="py-4 px-6">Return Date</th>
-                  <th className="py-4 px-6">Reason</th>
-                  <th className="py-4 px-6 text-right">Refund Value</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                {returns.map((r) => (
-                  <tr key={r.id}>
-                    <td className="py-4 px-6 font-mono text-white">{r.return_number}</td>
-                    <td className="py-4 px-6">{new Date(r.return_date).toLocaleDateString('en-IN')}</td>
-                    <td className="py-4 px-6">{r.reason || 'N/A'}</td>
-                    <td className="py-4 px-6 text-right text-rose-400">{formatINR(r.total_amount)}</td>
+            {returns.length === 0 ? (
+              <div className="py-16 text-center text-slate-500 dark:text-slate-400">
+                <FiRotateCcw className="w-12 h-12 mx-auto mb-3 opacity-40 text-slate-400" />
+                <p className="font-semibold text-base text-slate-700 dark:text-slate-200">No purchase returns recorded</p>
+                <p className="text-xs text-slate-400 mt-1">Returned goods and damaged items will appear here</p>
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 uppercase text-xs font-bold tracking-wider">
+                    <th className="py-4 px-6">Return Number</th>
+                    <th className="py-4 px-6">Return Date</th>
+                    <th className="py-4 px-6">Reason</th>
+                    <th className="py-4 px-6 text-right">Refund Value</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                  {returns.map((r) => (
+                    <tr key={r.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
+                      <td className="py-4 px-6 font-mono font-semibold text-slate-900 dark:text-white">{r.return_number}</td>
+                      <td className="py-4 px-6">{new Date(r.return_date).toLocaleDateString('en-IN')}</td>
+                      <td className="py-4 px-6">{r.reason || 'N/A'}</td>
+                      <td className="py-4 px-6 text-right text-rose-600 dark:text-rose-400 font-bold">{formatINR(r.total_amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
 
         {activeTab === 'debitnotes' && (
           <div className="overflow-x-auto text-sm">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase text-xs font-bold tracking-wider">
-                  <th className="py-4 px-6">Debit Note Ref</th>
-                  <th className="py-4 px-6">Source Return</th>
-                  <th className="py-4 px-6">Adjustment Date</th>
-                  <th className="py-4 px-6 text-right">Debit Adjustment</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                {returns.map((r) => (
-                  <tr key={r.id}>
-                    <td className="py-4 px-6 font-mono text-indigo-400">DN-{r.return_number}</td>
-                    <td className="py-4 px-6 font-mono text-white">{r.return_number}</td>
-                    <td className="py-4 px-6">{new Date(r.return_date).toLocaleDateString('en-IN')}</td>
-                    <td className="py-4 px-6 text-right text-rose-400 font-bold">{formatINR(r.total_amount)}</td>
+            {returns.length === 0 ? (
+              <div className="py-16 text-center text-slate-500 dark:text-slate-400">
+                <FiPercent className="w-12 h-12 mx-auto mb-3 opacity-40 text-slate-400" />
+                <p className="font-semibold text-base text-slate-700 dark:text-slate-200">No debit notes logged</p>
+                <p className="text-xs text-slate-400 mt-1">Debit adjustments linked to supplier returns will show here</p>
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 uppercase text-xs font-bold tracking-wider">
+                    <th className="py-4 px-6">Debit Note Ref</th>
+                    <th className="py-4 px-6">Source Return</th>
+                    <th className="py-4 px-6">Adjustment Date</th>
+                    <th className="py-4 px-6 text-right">Debit Adjustment</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                  {returns.map((r) => (
+                    <tr key={r.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
+                      <td className="py-4 px-6 font-mono font-semibold text-indigo-600 dark:text-indigo-400">DN-{r.return_number}</td>
+                      <td className="py-4 px-6 font-mono font-semibold text-slate-900 dark:text-white">{r.return_number}</td>
+                      <td className="py-4 px-6">{new Date(r.return_date).toLocaleDateString('en-IN')}</td>
+                      <td className="py-4 px-6 text-right text-rose-600 dark:text-rose-400 font-bold">{formatINR(r.total_amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
 
@@ -788,68 +938,321 @@ export default function PurchasesPage({ isRawMaterialOnly }) {
               className="relative w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 z-10 space-y-4 shadow-2xl"
             >
               <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Purchase Order — {selectedPo?.po_number}</h3>
-                <button onClick={() => setIsDetailOpen(false)} className="text-slate-400 hover:text-slate-655 dark:hover:text-white transition-colors"><FiX className="w-5 h-5" /></button>
+                <div className="flex items-center gap-3">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Purchase Order — {selectedPo?.po_number}</h3>
+                  <span className={`px-2.5 py-0.5 rounded text-[11px] font-extrabold uppercase ${
+                    (poDetail?.status || selectedPo?.status) === 'Received' || (poDetail?.status || selectedPo?.status) === 'Completed'
+                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                      : (poDetail?.status || selectedPo?.status) === 'Confirmed'
+                      ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
+                      : (poDetail?.status || selectedPo?.status) === 'Cancelled'
+                      ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                      : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                  }`}>
+                    {poDetail?.status || selectedPo?.status || 'Draft'}
+                  </span>
+                </div>
+                <button onClick={() => setIsDetailOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"><FiX className="w-5 h-5" /></button>
               </div>
               {isLoadingDetail ? (
-                <div className="py-8 text-center text-slate-450 dark:text-slate-400">Loading details...</div>
+                <div className="py-8 text-center text-slate-400">Loading details...</div>
               ) : (
                 <div className="space-y-4 text-xs">
-                  <div className="grid grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-slate-650 dark:text-slate-400">
+                  <div className="grid grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-slate-600 dark:text-slate-400">
                     <div>
                       <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Supplier Details</div>
-                      <div className="text-sm font-extrabold text-slate-800 dark:text-white">{poDetail?.supplier?.name || 'N/A'}</div>
-                      <div className="mt-1">{poDetail?.supplier?.email || ''}</div>
-                      <div>{poDetail?.supplier?.phone || ''}</div>
+                      <div className="text-sm font-extrabold text-slate-800 dark:text-white">{poDetail?.supplier?.name || poDetail?.supplier_name || 'N/A'}</div>
+                      {poDetail?.supplier?.phone && <div className="mt-1">Phone: {poDetail.supplier.phone}</div>}
+                      {poDetail?.supplier?.email && <div>Email: {poDetail.supplier.email}</div>}
+                      {poDetail?.supplier?.gstin && <div className="text-[11px] text-slate-400">GSTIN: {poDetail.supplier.gstin}</div>}
                     </div>
                     <div>
                       <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Order Metadata</div>
-                      <div>Date: <span className="text-slate-800 dark:text-white font-semibold">{poDetail?.order_date ? new Date(poDetail.order_date).toLocaleDateString() : 'N/A'}</span></div>
-                      <div>Status: <span className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950 text-indigo-650 dark:text-indigo-300 rounded text-[10px] font-extrabold uppercase">{poDetail?.status || 'N/A'}</span></div>
+                      <div>Date: <span className="text-slate-800 dark:text-white font-semibold">{poDetail?.order_date ? new Date(poDetail.order_date).toLocaleDateString('en-IN') : 'N/A'}</span></div>
+                      <div>Expected: <span className="text-slate-800 dark:text-white font-semibold">{poDetail?.expected_date ? new Date(poDetail.expected_date).toLocaleDateString('en-IN') : 'Standard Delivery'}</span></div>
                       <div className="mt-1">Total Amount: <span className="text-emerald-600 dark:text-emerald-400 font-extrabold text-sm">{formatINR(poDetail?.total_amount)}</span></div>
                     </div>
                   </div>
 
-                  {poDetail?.items && poDetail.items.length > 0 && (
+                  {poDetail?.items && poDetail.items.length > 0 ? (
                     <div className="space-y-2">
                       <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Line Items</div>
                       <div className="overflow-hidden border border-slate-100 dark:border-slate-800 rounded-xl">
                         <table className="w-full text-left border-collapse">
                           <thead>
-                            <tr className="bg-slate-50 dark:bg-slate-950 text-slate-455 dark:text-slate-400 font-bold border-b border-slate-100 dark:border-slate-800">
-                              <th className="px-4 py-2">Item</th>
+                            <tr className="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-100 dark:border-slate-800">
+                              <th className="px-4 py-2">Item / Ingredient</th>
                               <th className="px-4 py-2 text-right">Quantity</th>
                               <th className="px-4 py-2 text-right">Unit Rate</th>
                               <th className="px-4 py-2 text-right">Total</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-305">
-                            {poDetail.items.map((item, idx) => (
-                              <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-850/50">
-                                <td className="px-4 py-2 font-semibold text-slate-850 dark:text-white">{item.product?.name || 'N/A'}</td>
-                                <td className="px-4 py-2 text-right">{item.quantity} {item.product?.unit || ''}</td>
-                                <td className="px-4 py-2 text-right">₹{item.unit_price}</td>
-                                <td className="px-4 py-2 text-right font-extrabold text-slate-850 dark:text-white">₹{item.quantity * item.unit_price}</td>
-                              </tr>
-                            ))}
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                            {poDetail.items.map((item, idx) => {
+                              const rate = Number(item.unit_price ?? item.rate ?? 0);
+                              const qty = Number(item.quantity ?? 1);
+                              const lineTot = Number(item.line_total ?? item.total ?? (qty * rate));
+                              const prodName = item.product?.name || item.product_name || `Ingredient #${item.product_id || idx + 1}`;
+                              const prodUnit = item.product?.unit || '';
+                              return (
+                                <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
+                                  <td className="px-4 py-2 font-semibold text-slate-900 dark:text-white">
+                                    {prodName}
+                                    {item.product?.sku && <span className="ml-2 text-[10px] font-normal text-slate-400 font-mono">[{item.product.sku}]</span>}
+                                  </td>
+                                  <td className="px-4 py-2 text-right font-medium">{qty} {prodUnit}</td>
+                                  <td className="px-4 py-2 text-right">{formatINR(rate)}</td>
+                                  <td className="px-4 py-2 text-right font-extrabold text-slate-900 dark:text-white">{formatINR(lineTot)}</td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
                     </div>
+                  ) : (
+                    <div className="text-center py-4 text-slate-400 text-xs border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
+                      No line items recorded for this purchase order.
+                    </div>
                   )}
 
                   {poDetail?.notes && (
-                    <div className="bg-amber-50/60 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 p-3 rounded-xl text-amber-855 dark:text-amber-300">
+                    <div className="bg-amber-50/60 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 p-3 rounded-xl text-amber-800 dark:text-amber-300">
                       <span className="font-bold block text-[10px] uppercase tracking-wider mb-0.5">Notes</span>
                       {poDetail.notes}
                     </div>
                   )}
 
-                  <div className="flex justify-end pt-2">
-                    <button onClick={() => setIsDetailOpen(false)} className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold transition-colors">Close</button>
+                  {/* Actions & Status Updates */}
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Status:</span>
+                        {['Draft', 'Sent', 'Confirmed', 'Received', 'Cancelled'].map((st) => (
+                          <button
+                            key={st}
+                            disabled={poDetail?.status === st || updatePoMutation.isPending}
+                            onClick={() => updatePoMutation.mutate({ id: poDetail.id, status: st })}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-all ${
+                              poDetail?.status === st
+                                ? 'bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-300 dark:ring-indigo-900'
+                                : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'
+                            }`}
+                          >
+                            {st}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setIsDetailOpen(false);
+                            handleOpenEdit(poDetail || selectedPo);
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 hover:bg-blue-100 rounded-lg text-xs font-bold transition-colors"
+                        >
+                          <FiEdit2 className="w-3.5 h-3.5" /> Edit PO
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsDetailOpen(false);
+                            handleOpenDelete(poDetail || selectedPo);
+                          }}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-rose-50 dark:bg-rose-950 text-rose-600 dark:text-rose-400 hover:bg-rose-100 rounded-lg text-xs font-bold transition-colors"
+                        >
+                          <FiTrash2 className="w-3.5 h-3.5" /> Delete
+                        </button>
+                        <button
+                          onClick={() => setIsDetailOpen(false)}
+                          className="px-4 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold transition-colors"
+                        >
+                          Close
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* EDIT PO MODAL */}
+      <AnimatePresence>
+        {isEditOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsEditOpen(false)} />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 z-10 space-y-4 shadow-2xl"
+            >
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Edit Purchase Order — {editForm.po_number}</h3>
+                <button onClick={() => setIsEditOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white"><FiX className="w-5 h-5" /></button>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const payload = {
+                    id: editForm.id,
+                    supplier_id: parseInt(editForm.supplier_id),
+                    status: editForm.status,
+                    notes: editForm.notes
+                  };
+                  if (editForm.product_id && editForm.quantity && editForm.rate) {
+                    payload.items = [
+                      {
+                        product_id: parseInt(editForm.product_id),
+                        quantity: parseFloat(editForm.quantity) || 1,
+                        unit_price: parseFloat(editForm.rate) || 0
+                      }
+                    ];
+                  }
+                  updatePoMutation.mutate(payload);
+                }}
+                className="space-y-4 text-xs"
+              >
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Supplier</label>
+                  <select
+                    required
+                    value={editForm.supplier_id}
+                    onChange={(e) => setEditForm({ ...editForm, supplier_id: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">-- Select Supplier --</option>
+                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name} ({s.phone})</option>)}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Order Status</label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="Draft">Draft</option>
+                    <option value="Sent">Sent</option>
+                    <option value="Confirmed">Confirmed</option>
+                    <option value="Received">Received</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Raw Material / Product</label>
+                  <select
+                    value={editForm.product_id}
+                    onChange={(e) => {
+                      const pid = e.target.value;
+                      const prod = rawMaterialProducts.find(p => p.id.toString() === pid);
+                      setEditForm({
+                        ...editForm,
+                        product_id: pid,
+                        rate: prod && prod.purchase_price ? prod.purchase_price.toString() : editForm.rate
+                      });
+                    }}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">-- Select Item (Optional Update) --</option>
+                    {rawMaterialProducts.map(p => <option key={p.id} value={p.id}>{p.name} ({p.unit || 'Units'})</option>)}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Quantity</label>
+                    <input
+                      type="number"
+                      value={editForm.quantity}
+                      onChange={(e) => setEditForm({ ...editForm, quantity: e.target.value })}
+                      placeholder="e.g. 50"
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Unit Rate (₹)</label>
+                    <input
+                      type="number"
+                      value={editForm.rate}
+                      onChange={(e) => setEditForm({ ...editForm, rate: e.target.value })}
+                      placeholder="e.g. 180"
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2 text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">Notes</label>
+                  <textarea
+                    rows={2}
+                    value={editForm.notes}
+                    onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                    placeholder="Instructions or remarks"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditOpen(false)}
+                    className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={updatePoMutation.isPending}
+                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-md transition-all"
+                  >
+                    {updatePoMutation.isPending ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* DELETE CONFIRMATION MODAL */}
+      <AnimatePresence>
+        {isDeleteOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsDeleteOpen(false)} />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 z-10 space-y-4 shadow-2xl text-center"
+            >
+              <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 mx-auto flex items-center justify-center text-2xl font-bold">
+                <FiTrash2 />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Delete Purchase Order</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Are you sure you want to delete <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{selectedPo?.po_number}</span>? This action can be reversed by an administrator.
+              </p>
+              <div className="flex justify-center gap-3 pt-2">
+                <button
+                  onClick={() => setIsDeleteOpen(false)}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={deletePoMutation.isPending}
+                  onClick={() => deletePoMutation.mutate(selectedPo?.id)}
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs shadow-md transition-all"
+                >
+                  {deletePoMutation.isPending ? 'Deleting...' : 'Confirm Delete'}
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

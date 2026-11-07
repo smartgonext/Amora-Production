@@ -108,3 +108,31 @@ def test_ui_config_endpoint(client, app):
     assert 'manufacturing' not in data['enabled_modules']
     assert 'inventory' in data['enabled_modules']
     assert data['features'].get('expiry') is True
+
+    # Test PUT /api/v1/setup/ui-config allows toggling modules
+    r_put = client.put('/api/v1/setup/ui-config', headers=headers, json={
+        'enabled_modules': ['dashboard', 'products', 'inventory', 'sales']
+    })
+    assert r_put.status_code == 200
+    updated_data = r_put.json['data']
+    assert 'sales' in updated_data['enabled_modules']
+    assert 'purchases' not in updated_data['enabled_modules']
+
+
+def test_ice_cream_vs_rental_modules():
+    """Verify Ice Cream excludes rentals/equipment, and Equipment Rental excludes manufacturing."""
+    ice_cream = get_default_business_modules('Ice Cream Manufacturing')
+    assert 'manufacturing' in ice_cream['enabled_modules']
+    assert 'equipment' not in ice_cream['enabled_modules']
+    assert 'rentals' not in ice_cream['enabled_modules']
+    assert 'amc' not in ice_cream['enabled_modules']
+    assert 'equipment' in ice_cream['hidden']
+    assert 'rentals' in ice_cream['hidden']
+
+    rental = get_default_business_modules('Equipment Rental')
+    assert 'equipment' in rental['enabled_modules']
+    assert 'rentals' in rental['enabled_modules']
+    assert 'amc' in rental['enabled_modules']
+    assert 'manufacturing' not in rental['enabled_modules']
+    assert 'manufacturing' in rental['hidden']
+

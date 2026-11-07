@@ -171,7 +171,7 @@ export default function Sidebar() {
 
         {/* Manufacturing section (adaptive to tenant config + business type) */}
         {isModuleEnabled('manufacturing') && (() => {
-          const mfgItems = buildManufacturingMenu(mfgConfig, manufacturingMenuItems);
+          const mfgItems = buildManufacturingMenu(mfgConfig, manufacturingMenuItems, company?.business_type);
           if (mfgItems.length === 0) return null;
           return (
             <div className="pt-2 mt-2 border-t border-gray-700">

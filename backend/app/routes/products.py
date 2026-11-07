@@ -2,13 +2,22 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.extensions import db
 from app.models.user import User
-from app.models.product import Product
+from app.models.product import Product, ProductCategory
 
 products_bp = Blueprint('products', __name__)
 
 def get_current_user():
     user_id = get_jwt_identity()
     return db.session.get(User, int(user_id))
+
+@products_bp.route('/categories', methods=['GET'])
+@jwt_required()
+def get_categories():
+    user = get_current_user()
+    if not user:
+        return jsonify({"data": None, "meta": None, "errors": ["User not found"]}), 404
+    cats = ProductCategory.query.filter_by(tenant_id=user.tenant_id, is_deleted=False).all()
+    return jsonify({"data": [c.to_dict() for c in cats], "meta": {"count": len(cats)}, "errors": None}), 200
 
 @products_bp.route('', methods=['GET'])
 @jwt_required()

@@ -11,6 +11,17 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
         print("All database tables ensured.")
+        
+        # Auto-seed if database is completely fresh (first run)
+        try:
+            from app.models.user import User
+            if User.query.count() == 0:
+                print("First run detected: Database is empty. Running initial setup for Amora Bakery & Superadmin...")
+                from seed import seed_database
+                seed_database(app)
+                print("Initial setup completed.")
+        except Exception as e:
+            print(f"Warning: Auto-seed check encountered an issue: {e}")
     
     # Default parameters for running locally
     host = os.environ.get('FLASK_HOST', '0.0.0.0')
