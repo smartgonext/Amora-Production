@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8
+    container_name: amora-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-Smartgonext@4505}
+      MYSQL_DATABASE: ${DB_NAME:-smartgonext_erp}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - amora-network
+    command: --default-authentication-plugin=mysql_native_password
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: amora-backend
+    restart: always
+    environment:
+      FLASK_CONFIG: prod
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-Smartgonext@4505}
+      DB_NAME: ${DB_NAME:-smartgonext_erp}
+      SECRET_KEY: ${SECRET_KEY:-amora-bakery-prod-secret-key-2026}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-amora-jwt-secret-key-32-bytes-secure}
+    depends_on:
+      - mysql
+    ports:
+      - "5000:5000"
+    networks:
+      - amora-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: amora-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - amora-network
+
+volumes:
+  mysql_data:
+
+networks:
+  amora-network:
+    driver: bridge
