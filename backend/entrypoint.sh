@@ -62,3 +62,4 @@ EOF
 
 echo "Starting Gunicorn application server..."
 exec gunicorn --bind 0.0.0.0:5000 --workers 3 --timeout 120 --access-logfile - --error-logfile - run:app
+
