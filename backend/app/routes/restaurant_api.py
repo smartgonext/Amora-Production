@@ -694,16 +694,19 @@ def sync_restaurant_catalog():
 
     payload = request.get_json() or {}
     items = payload.get('items') or []
-    if not items:
+    replace = bool(payload.get('replace', False))
+    if not items and not replace:
         return _error("items array is required", 400)
 
     upserted_count = 0
     now = datetime.utcnow()
+    synced_item_ids = []
 
     for itm in items:
         rest_item_id = itm.get('id') or itm.get('restaurant_item_id')
         if not rest_item_id:
             continue
+        synced_item_ids.append(str(rest_item_id))
 
         name = itm.get('name') or f"Restaurant Item #{rest_item_id}"
         sku = itm.get('sku') or ''
@@ -748,12 +751,46 @@ def sync_restaurant_catalog():
             db.session.add(new_synced)
         upserted_count += 1
 
+    if replace:
+        StoreSyncedProduct.query.filter(
+            StoreSyncedProduct.store_id == store.id,
+            ~StoreSyncedProduct.restaurant_item_id.in_(synced_item_ids)
+        ).delete(synchronize_session=False)
+
     db.session.commit()
     return jsonify({
         "data": {
             "upserted_count": upserted_count,
             "store_id": store.id,
             "store_name": store.name
+        },
+        "errors": None
+    }), 200
+
+
+@store_bp.route('/cleanup-unwanted-catalog', methods=['POST'])
+def cleanup_unwanted_catalog():
+    """Remove commercial FMCG grocery products, keeping only KOT items and Amora own-brand products."""
+    store = _store_from_request()
+    if not store:
+        return _error("Invalid X-API-Key", 401)
+
+    deleted = StoreSyncedProduct.query.filter(
+        StoreSyncedProduct.store_id == store.id,
+        StoreSyncedProduct.is_kot_item == False,
+        ~StoreSyncedProduct.category_name.ilike('%AMORA%'),
+        ~StoreSyncedProduct.category_name.ilike('%Bakery%'),
+        ~StoreSyncedProduct.category_name.ilike('%Cake%'),
+        ~StoreSyncedProduct.category_name.ilike('%Mixture%')
+    ).delete(synchronize_session=False)
+
+    db.session.commit()
+    remaining = StoreSyncedProduct.query.filter_by(store_id=store.id, is_deleted=False).count()
+    return jsonify({
+        "data": {
+            "deleted_count": deleted,
+            "remaining_count": remaining,
+            "message": f"Successfully cleaned up {deleted} commercial items. Remaining Amora own & KOT items: {remaining}"
         },
         "errors": None
     }), 200
