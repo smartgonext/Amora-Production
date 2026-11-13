@@ -19,7 +19,9 @@ from app.models.manufacturing import (TenantManufacturingConfig, BomHeader, BomI
     MaterialUomConversion, BatchLineage)
 from app.models.bakery import (BakingPlan, BakingPlanItem, DeliveryRoute,
                                 DeliveryRouteStop, HaccpControlPoint)
-from app.models.restaurant_store import StoreChannel, StoreDispatch, StoreDispatchItem
+from app.models.restaurant_store import (
+    StoreChannel, StoreDispatch, StoreDispatchItem, StoreCakeOrder, StoreSyncedProduct
+)
 
 __all__ = [
     'BaseModel',
@@ -50,5 +52,5 @@ __all__ = [
     'MaterialUomConversion', 'BatchLineage',
     'BakingPlan', 'BakingPlanItem', 'DeliveryRoute', 'DeliveryRouteStop',
     'HaccpControlPoint',
-    'StoreChannel', 'StoreDispatch', 'StoreDispatchItem',
+    'StoreChannel', 'StoreDispatch', 'StoreDispatchItem', 'StoreCakeOrder', 'StoreSyncedProduct',
 ]

@@ -20,6 +20,8 @@ export default function Navbar() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [pendingBills, setPendingBills] = useState(0);
+  const [cakeOrdersCount, setCakeOrdersCount] = useState(0);
+  const prevCakeOrdersCount = useRef(0);
   const searchRef = useRef(null);
   const notifRef = useRef(null);
   const profileRef = useRef(null);
@@ -49,6 +51,49 @@ export default function Navbar() {
       } catch (err) {}
     };
     fetchBills();
+  }, []);
+
+  // Web Audio alert chime for instant cake order arrival
+  const playCakeChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.12); // E5
+      osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.24); // G5
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.52);
+    } catch (e) {
+      // Audio autoplay policy fallback
+    }
+  };
+
+  // Poll restaurant cake orders summary
+  useEffect(() => {
+    const fetchCakeSummary = async () => {
+      try {
+        const res = await apiClient.get('/store/cake-orders/summary');
+        if (res.data?.success) {
+          const newCount = res.data.data?.new_orders_count || 0;
+          if (newCount > prevCakeOrdersCount.current && prevCakeOrdersCount.current !== 0) {
+            playCakeChime();
+          }
+          prevCakeOrdersCount.current = newCount;
+          setCakeOrdersCount(newCount);
+        }
+      } catch (err) {}
+    };
+    fetchCakeSummary();
+    const interval = setInterval(fetchCakeSummary, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   // Global search with debounce
@@ -216,6 +261,20 @@ export default function Navbar() {
           {pendingBills > 0 && (
             <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-bold min-w-[18px] min-h-[18px] flex items-center justify-center rounded-full px-1">
               {pendingBills > 99 ? '99+' : pendingBills}
+            </span>
+          )}
+        </Link>
+
+        {/* Live Restaurant Cake Orders */}
+        <Link
+          to="/manufacturing/cake-orders"
+          className="relative p-2.5 rounded-xl hover:bg-pink-50 dark:hover:bg-pink-900/20 text-pink-500 transition-colors"
+          title="Live Restaurant Cake Orders"
+        >
+          <span className="text-lg leading-none select-none">🎂</span>
+          {cakeOrdersCount > 0 && (
+            <span className="absolute -top-1 -right-1 bg-pink-600 text-white text-[10px] font-bold min-w-[18px] min-h-[18px] flex items-center justify-center rounded-full px-1 shadow-xs animate-bounce">
+              {cakeOrdersCount > 99 ? '99+' : cakeOrdersCount}
             </span>
           )}
         </Link>

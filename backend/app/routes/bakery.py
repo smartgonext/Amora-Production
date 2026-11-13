@@ -3,6 +3,7 @@
 Gated to bakery/process tenants by the front-end nav. These endpoints are
 thin wrappers around `app.services.bakery_service`.
 """
+import datetime
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from app.extensions import db
@@ -264,9 +265,7 @@ def day_cost():
     user = get_current_user()
     if not user:
         return jsonify({"data": None, "meta": None, "errors": ["User not found"]}), 404
-    d = request.args.get('date')
-    if not d:
-        return jsonify({"data": None, "meta": None, "errors": ["date is required"]}), 400
+    d = request.args.get('date') or datetime.date.today().isoformat()
     report = compute_day_cost(user.tenant_id, user.company_id, d)
     return jsonify({"data": report, "meta": None, "errors": None}), 200
 

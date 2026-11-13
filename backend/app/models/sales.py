@@ -45,6 +45,19 @@ class QuotationItem(BaseModel):
     sgst_amount = db.Column(db.Numeric(10, 2), default=0.00)
     total_amount = db.Column(db.Numeric(10, 2), default=0.00)
 
+    def to_dict(self):
+        data = super().to_dict()
+        if self.product_id:
+            from app.models.product import Product
+            prod = Product.query.get(self.product_id)
+            if prod:
+                data['product_name'] = prod.name
+                data['unit'] = getattr(prod.unit, 'short_name', 'Nos') if getattr(prod, 'unit', None) else 'Nos'
+                data['product'] = prod.to_dict()
+        data['unit_price'] = float(self.rate or 0)
+        data['line_total'] = float(self.total_amount or 0)
+        return data
+
 
 class SalesOrder(BaseModel):
     """Sales order - confirmed order from customer"""
@@ -83,6 +96,19 @@ class SalesOrderItem(BaseModel):
     sgst_amount = db.Column(db.Numeric(10, 2), default=0.00)
     total_amount = db.Column(db.Numeric(10, 2), default=0.00)
 
+    def to_dict(self):
+        data = super().to_dict()
+        if self.product_id:
+            from app.models.product import Product
+            prod = Product.query.get(self.product_id)
+            if prod:
+                data['product_name'] = prod.name
+                data['unit'] = getattr(prod.unit, 'short_name', 'Nos') if getattr(prod, 'unit', None) else 'Nos'
+                data['product'] = prod.to_dict()
+        data['unit_price'] = float(self.rate or 0)
+        data['line_total'] = float(self.total_amount or 0)
+        return data
+
 
 class Invoice(BaseModel):
     """Sales invoice - GST compliant"""
@@ -120,6 +146,20 @@ class Invoice(BaseModel):
     def to_dict(self):
         data = super().to_dict()
         data['tax_amount'] = float(self.cgst_amount or 0) + float(self.sgst_amount or 0) + float(self.igst_amount or 0)
+        data['status'] = data.get('status') or self.payment_status or 'Paid'
+        
+        # Serialize customer details
+        if self.customer_id:
+            from app.models.customer import Customer
+            cust = Customer.query.get(self.customer_id)
+            if cust:
+                data['customer_name'] = cust.name
+                data['customer'] = cust.to_dict()
+            else:
+                data['customer_name'] = 'Walk-in Customer'
+        else:
+            data['customer_name'] = 'Walk-in Customer'
+
         data['items'] = [item.to_dict() for item in self.items]
         if self.custom_fields and isinstance(self.custom_fields, dict):
             data.update(self.custom_fields)
@@ -142,6 +182,19 @@ class InvoiceItem(BaseModel):
     cgst_amount = db.Column(db.Numeric(10, 2), default=0.00)
     sgst_amount = db.Column(db.Numeric(10, 2), default=0.00)
     total_amount = db.Column(db.Numeric(10, 2), default=0.00)
+
+    def to_dict(self):
+        data = super().to_dict()
+        if self.product_id:
+            from app.models.product import Product
+            prod = Product.query.get(self.product_id)
+            if prod:
+                data['product_name'] = prod.name
+                data['unit'] = getattr(prod.unit, 'short_name', 'Nos') if getattr(prod, 'unit', None) else 'Nos'
+                data['product'] = prod.to_dict()
+        data['unit_price'] = float(self.rate or 0)
+        data['line_total'] = float(self.total_amount or 0)
+        return data
 
 
 class POSSession(BaseModel):
@@ -197,6 +250,19 @@ class SalesReturnItem(BaseModel):
     cgst_amount = db.Column(db.Numeric(10, 2), default=0.00)
     sgst_amount = db.Column(db.Numeric(10, 2), default=0.00)
     total_amount = db.Column(db.Numeric(10, 2), default=0.00)
+
+    def to_dict(self):
+        data = super().to_dict()
+        if self.product_id:
+            from app.models.product import Product
+            prod = Product.query.get(self.product_id)
+            if prod:
+                data['product_name'] = prod.name
+                data['unit'] = getattr(prod.unit, 'short_name', 'Nos') if getattr(prod, 'unit', None) else 'Nos'
+                data['product'] = prod.to_dict()
+        data['unit_price'] = float(self.rate or 0)
+        data['line_total'] = float(self.total_amount or 0)
+        return data
 
 
 class DeliveryChallan(BaseModel):

@@ -25,3 +25,7 @@ export const rotateStoreChannelKey = (channelId) =>
 /** Full dispatch history for one outlet. */
 export const listStoreChannelDispatches = (channelId) =>
   apiClient.get(`/store/channels/${channelId}/dispatches`);
+
+/** List synced restaurant catalog products & dual stock */
+export const listSyncedProducts = (params) =>
+  apiClient.get('/store/synced-products', { params });

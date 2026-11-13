@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { FiPlus, FiCopy, FiRefreshCw, FiShoppingBag, FiKey, FiTruck, FiInfo } from 'react-icons/fi';
 import {
-  createStoreChannel, listStoreChannels, rotateStoreChannelKey, listStoreChannelDispatches,
+  FiPlus, FiCopy, FiRefreshCw, FiShoppingBag, FiKey, FiTruck, FiInfo,
+  FiBox, FiCheckCircle, FiSearch, FiShield, FiLayers
+} from 'react-icons/fi';
+import {
+  createStoreChannel, listStoreChannels, rotateStoreChannelKey,
+  listStoreChannelDispatches, listSyncedProducts
 } from '../../api/store';
 
 const copyText = (text) => {
@@ -22,6 +26,10 @@ export default function StoreChannelPage() {
   const [justCreatedKey, setJustCreatedKey] = useState(null);
   const [dispatches, setDispatches] = useState(null);
   const [dispatchesFor, setDispatchesFor] = useState(null);
+  const [syncedProducts, setSyncedProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
+  const [productTypeFilter, setProductTypeFilter] = useState('all'); // 'all', 'kot', 'retail'
 
   const load = async () => {
     try {
@@ -34,7 +42,22 @@ export default function StoreChannelPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  const loadSyncedProducts = async () => {
+    setLoadingProducts(true);
+    try {
+      const res = await listSyncedProducts();
+      setSyncedProducts(res.data?.data || []);
+    } catch (err) {
+      console.warn('Could not load synced products:', err);
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    loadSyncedProducts();
+  }, []);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -203,6 +226,148 @@ export default function StoreChannelPage() {
             )}
           </div>
         )}
+      </section>
+
+      {/* Synced Restaurant Catalog & Dual Stock Matrix */}
+      <section className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 className="text-base font-bold flex items-center gap-2">
+              <FiBox className="text-pink-500" /> Synced Restaurant Catalog & Stock Matrix
+              <span className="text-xs px-2 py-0.5 rounded-full bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300 font-semibold">
+                {syncedProducts.length} Items
+              </span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Own barcode retail items and KOT production items (puffs, momos, samosas) synced from Restaurant POS.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={loadSyncedProducts}
+              disabled={loadingProducts}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-1.5 transition"
+            >
+              <FiRefreshCw className={`w-3.5 h-3.5 ${loadingProducts ? 'animate-spin' : ''}`} />
+              <span>Refresh Catalog</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Search & Filter Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+          <div className="relative flex-1 min-w-[200px]">
+            <FiSearch className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+            <input
+              type="text"
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+              placeholder="Filter by name, barcode, or SKU..."
+              className="w-full pl-9 pr-3 py-1.5 text-xs rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none"
+            />
+          </div>
+
+          <div className="flex gap-1">
+            <button
+              onClick={() => setProductTypeFilter('all')}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-md transition ${productTypeFilter === 'all' ? 'bg-pink-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setProductTypeFilter('kot')}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-md transition ${productTypeFilter === 'kot' ? 'bg-pink-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}
+            >
+              🌱 KOT Items
+            </button>
+            <button
+              onClick={() => setProductTypeFilter('retail')}
+              className={`px-2.5 py-1 text-xs font-semibold rounded-md transition ${productTypeFilter === 'retail' ? 'bg-pink-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}
+            >
+              📦 Barcode Retail
+            </button>
+          </div>
+        </div>
+
+        {/* Deletion Protection Banner */}
+        <div className="mb-4 p-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 text-xs text-blue-700 dark:text-blue-300 flex items-center gap-2">
+          <FiShield className="w-4 h-4 flex-shrink-0" />
+          <span><b>Catalog Safety Active:</b> Archiving or deleting items in Bakery ERP will NEVER remove or alter products in your live Restaurant POS database.</span>
+        </div>
+
+        {/* Products Table */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase font-bold text-[10px]">
+                <th className="py-2.5 px-3">Product Name & Category</th>
+                <th className="py-2.5 px-3">Barcode / SKU</th>
+                <th className="py-2.5 px-3">Type</th>
+                <th className="py-2.5 px-3 text-right">Selling Price</th>
+                <th className="py-2.5 px-3 text-right">Restaurant POS Stock</th>
+                <th className="py-2.5 px-3 text-right">Bakery ERP Stock</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {loadingProducts ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-slate-400">Loading synced items...</td>
+                </tr>
+              ) : syncedProducts.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-slate-400">
+                    No synced products yet. Click "Push to ERP" in Restaurant POS or wait for auto-sync.
+                  </td>
+                </tr>
+              ) : (
+                syncedProducts
+                  .filter((p) => {
+                    if (productTypeFilter === 'kot' && !p.is_kot_item) return false;
+                    if (productTypeFilter === 'retail' && p.is_kot_item) return false;
+                    if (productSearch) {
+                      const q = productSearch.toLowerCase();
+                      return (
+                        p.name?.toLowerCase().includes(q) ||
+                        p.barcode?.toLowerCase().includes(q) ||
+                        p.sku?.toLowerCase().includes(q)
+                      );
+                    }
+                    return true;
+                  })
+                  .map((p) => (
+                    <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                      <td className="py-2.5 px-3">
+                        <div className="font-bold text-slate-800 dark:text-white">{p.name}</div>
+                        <div className="text-[10px] text-slate-400">{p.category_name}</div>
+                      </td>
+                      <td className="py-2.5 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                        {p.barcode || p.sku || '—'}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          p.is_kot_item
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+                        }`}>
+                          {p.is_kot_item ? '🌱 KOT Item' : '📦 Retail Barcode'}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-bold">
+                        ₹{Number(p.selling_price || 0).toFixed(2)}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-bold text-pink-600 dark:text-pink-400">
+                        {p.restaurant_stock}
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-bold text-indigo-600 dark:text-indigo-400">
+                        {p.erp_product_stock ?? '—'}
+                      </td>
+                    </tr>
+                  ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {/* How it works */}

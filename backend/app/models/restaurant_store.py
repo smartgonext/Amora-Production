@@ -117,3 +117,92 @@ class StoreDispatchItem(BaseModel):
         if data.get('selling_price') is not None:
             data['selling_price'] = float(data['selling_price'])
         return data
+
+
+class StoreCakeOrder(BaseModel):
+    """Cake Order booked at a restaurant outlet with advance payment."""
+
+    __tablename__ = 'store_cake_orders'
+
+    tenant_id = db.Column(db.BigInteger().with_variant(db.Integer, "mysql"),
+                          db.ForeignKey('tenants.id'), nullable=False, index=True)
+    company_id = db.Column(db.BigInteger().with_variant(db.Integer, "mysql"),
+                           db.ForeignKey('companies.id'), nullable=True)
+    store_id = db.Column(db.BigInteger().with_variant(db.Integer, "mysql"),
+                         db.ForeignKey('store_channels.id'), nullable=False, index=True)
+
+    order_number = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    restaurant_order_id = db.Column(db.Integer, nullable=True)
+    customer_name = db.Column(db.String(120), nullable=False)
+    customer_phone = db.Column(db.String(20), nullable=False)
+    delivery_date = db.Column(db.Date, nullable=False, index=True)
+    delivery_time = db.Column(db.String(20), nullable=False)
+    flavor = db.Column(db.String(100), nullable=False)
+    weight_kg = db.Column(db.Numeric(5, 2), default=1.00)
+    shape = db.Column(db.String(50), default='Round')
+    is_eggless = db.Column(db.Boolean, default=False)
+    tier_count = db.Column(db.Integer, default=1)
+    message_on_cake = db.Column(db.String(255), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    photo_url = db.Column(db.String(255), nullable=True)
+    total_price = db.Column(db.Numeric(10, 2), default=0.00)
+    advance_paid = db.Column(db.Numeric(10, 2), default=0.00)
+    balance_amount = db.Column(db.Numeric(10, 2), default=0.00)
+    advance_payment_mode = db.Column(db.String(30), default='Cash')
+    balance_payment_mode = db.Column(db.String(30), nullable=True)
+    bill_number = db.Column(db.String(50), nullable=True)
+    status = db.Column(db.String(30), default='NEW_ORDER', index=True)  # NEW_ORDER, BAKING, DECORATING, READY, DISPATCHED, DELIVERED, CANCELLED
+
+    store = db.relationship('StoreChannel', backref=db.backref('cake_orders', lazy='dynamic'))
+
+    def to_dict(self):
+        data = super().to_dict()
+        for col in ['weight_kg', 'total_price', 'advance_paid', 'balance_amount']:
+            if data.get(col) is not None:
+                data[col] = float(data[col])
+        data['balance_due'] = data.get('balance_amount', 0.0)
+        if self.store:
+            data['store_name'] = self.store.name
+            data['store_code'] = self.store.code
+        return data
+
+
+class StoreSyncedProduct(BaseModel):
+    """Product imported from a connected restaurant outlet (barcode retail goods + KOT production goods)."""
+
+    __tablename__ = 'store_synced_products'
+    __table_args__ = (
+        db.UniqueConstraint('store_id', 'restaurant_item_id', name='uq_store_synced_item'),
+    )
+
+    tenant_id = db.Column(db.BigInteger().with_variant(db.Integer, "mysql"),
+                          db.ForeignKey('tenants.id'), nullable=False, index=True)
+    store_id = db.Column(db.BigInteger().with_variant(db.Integer, "mysql"),
+                         db.ForeignKey('store_channels.id'), nullable=False, index=True)
+    restaurant_item_id = db.Column(db.String(60), nullable=False)
+    name = db.Column(db.String(150), nullable=False)
+    sku = db.Column(db.String(60), nullable=True)
+    barcode = db.Column(db.String(60), nullable=True, index=True)
+    category_name = db.Column(db.String(100), nullable=True)
+    is_kot_item = db.Column(db.Boolean, default=False)  # puff, momos, samosa, etc.
+    cost_price = db.Column(db.Numeric(10, 2), default=0.00)
+    selling_price = db.Column(db.Numeric(10, 2), default=0.00)
+    restaurant_stock = db.Column(db.Numeric(10, 2), default=0.00)
+    erp_product_id = db.Column(db.BigInteger().with_variant(db.Integer, "mysql"),
+                               db.ForeignKey('products.id'), nullable=True)
+    last_synced_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    store = db.relationship('StoreChannel', backref=db.backref('synced_products', lazy='dynamic'))
+    erp_product = db.relationship('Product', foreign_keys=[erp_product_id])
+
+    def to_dict(self):
+        data = super().to_dict()
+        for col in ['cost_price', 'selling_price', 'restaurant_stock']:
+            if data.get(col) is not None:
+                data[col] = float(data[col])
+        if self.store:
+            data['store_name'] = self.store.name
+        if self.erp_product:
+            data['erp_product_name'] = self.erp_product.name
+            data['erp_stock'] = float(self.erp_product.current_stock) if self.erp_product.current_stock is not None else 0.0
+        return data

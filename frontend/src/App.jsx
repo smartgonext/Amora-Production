@@ -33,6 +33,7 @@ import BakePlanner from './pages/manufacturing/BakePlanner';
 import FreshReturnPage from './pages/manufacturing/FreshReturnPage';
 import BakeryQC from './pages/manufacturing/BakeryQC';
 import DayCostReport from './pages/manufacturing/DayCostReport';
+import CakeOrdersPage from './pages/manufacturing/CakeOrdersPage';
 import RentalsPage from './pages/rentals/RentalsPage';
 import AmcPage from './pages/amc/AmcPage';
 import BranchesPage from './pages/branches/BranchesPage';
@@ -178,6 +179,7 @@ export default function App() {
         <Route path="/manufacturing/bake-planner" element={PM(BakePlanner)} />
         <Route path="/manufacturing/fresh-returns" element={PM(FreshReturnPage)} />
         <Route path="/manufacturing/bakery-qc" element={PM(BakeryQC)} />
+        <Route path="/manufacturing/cake-orders" element={PM(CakeOrdersPage)} />
         <Route path="/manufacturing/day-cost" element={PM(DayCostReport)} />
         <Route path="/rentals" element={P(RentalsPage)} />
         <Route path="/amc" element={P(AmcPage)} />

@@ -55,6 +55,12 @@ class BomHeader(BaseModel):
     def to_dict(self):
         data = super().to_dict()
         data['base_quantity'] = float(self.base_quantity) if self.base_quantity is not None else 1.0
+        if self.product_id:
+            from app.models.product import Product
+            p = Product.query.get(self.product_id)
+            if p:
+                data['product_name'] = p.name
+                data['product'] = p.to_dict()
         data['items'] = [i.to_dict() for i in self.items if not i.is_deleted]
         data['byproducts'] = [b.to_dict() for b in self.byproducts if not b.is_deleted]
         data['routing_operations'] = [r.to_dict() for r in self.routing_operations if not r.is_deleted]
@@ -80,6 +86,13 @@ class BomItem(BaseModel):
     def to_dict(self):
         data = super().to_dict()
         data['material_item_id'] = self.item_id
+        if self.item_id:
+            from app.models.product import Product
+            p = Product.query.get(self.item_id)
+            if p:
+                data['item_name'] = p.name
+                data['product_name'] = p.name
+                data['material_name'] = p.name
         return data
 
 
@@ -197,6 +210,18 @@ class WorkOrder(BaseModel):
 
     def to_dict(self):
         data = super().to_dict()
+        data['planned_qty'] = float(self.planned_qty or 1.0)
+        data['produced_qty'] = float(self.produced_qty or 0.0)
+        if self.bom_id:
+            b = BomHeader.query.get(self.bom_id)
+            if b:
+                data['bom_name'] = b.name
+                if b.product_id:
+                    from app.models.product import Product
+                    p = Product.query.get(b.product_id)
+                    if p:
+                        data['product_name'] = p.name
+                        data['product'] = p.to_dict()
         data['operations'] = [o.to_dict() for o in self.operations if not o.is_deleted]
         return data
 

@@ -83,6 +83,7 @@ export function buildManufacturingMenu(config, allItems, businessType = '') {
       items.push({ path: '/manufacturing/recipe-scaler', label: 'Recipe Scaler', icon: FiPercent });
     }
     items.push({ path: '/manufacturing/bake-planner', label: 'Bake Planner', icon: FiCalendar });
+    items.push({ path: '/manufacturing/cake-orders', label: '🎂 Cake Orders (POS)', icon: FiCheckCircle });
     items.push({ path: '/manufacturing/fresh-returns', label: 'Fresh Returns & Delivery', icon: FiRefreshCw });
     items.push({ path: '/manufacturing/bakery-qc', label: 'Bakery HACCP QC', icon: FiShield });
     items.push({ path: '/manufacturing/day-cost', label: 'Bake-Day Cost', icon: FiBarChart2 });

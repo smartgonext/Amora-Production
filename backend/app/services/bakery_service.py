@@ -74,6 +74,7 @@ def scale_formula(bom_id, target_dough_weight):
 
     flour_weight = _flour_weight_for_target(items, target)
 
+    from app.models.product import Product
     scaled = []
     total_ingredient_weight = Decimal('0')
     for it in items:
@@ -81,12 +82,16 @@ def scale_formula(bom_id, target_dough_weight):
         if pct == 0:
             pct = as_decimal(it.qty_required)
         weight = flour_weight * (pct / Decimal('100'))
+        p = Product.query.get(it.item_id)
+        item_name = p.name if p else f"Item #{it.item_id}"
         scaled.append({
             'item_id': it.item_id,
+            'item_name': item_name,
             'material_item_id': it.item_id,
-            'uom': it.uom,
+            'uom': it.uom or 'kg',
             'baker_pct': _round(pct, 4),
             'qty': _round(weight, 4),
+            'scaled_qty': _round(weight, 4),
         })
         total_ingredient_weight += weight
 
