@@ -1,18 +1,17 @@
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
 
 WORKDIR /app
 
-# Install system dependencies
+# Install lightweight runtime dependencies (no heavy compilers needed)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    default-libmysqlclient-dev \
-    pkg-config \
     curl \
+    libfreetype6 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install python dependencies
+# Install python dependencies with high timeout and retries for VPS network stability
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --default-timeout=1000 --retries 10 -r requirements.txt
 
 # Copy source code
 COPY . .
@@ -26,4 +25,3 @@ ENV FLASK_CONFIG=prod
 ENV PYTHONUNBUFFERED=1
 
 ENTRYPOINT ["./entrypoint.sh"]
-
