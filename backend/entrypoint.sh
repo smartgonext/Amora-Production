@@ -16,17 +16,33 @@ db_name = os.environ.get('DB_NAME', 'smartgonext_erp')
 connected = False
 for attempt in range(1, 41):
     try:
-        conn = pymysql.connect(
+        # First attempt: Connect and ensure database exists
+        try:
+            conn = pymysql.connect(
+                host=host,
+                port=port,
+                user=user,
+                password=password,
+                connect_timeout=5
+            )
+            with conn.cursor() as cursor:
+                cursor.execute(f"CREATE DATABASE IF NOT EXISTS `{db_name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
+            conn.close()
+            print(f"[OK] Database '{db_name}' ensured.")
+        except Exception as e_create:
+            print(f"[INFO] Notice on CREATE DATABASE (using target DB directly): {e_create}")
+
+        # Verify connection directly to target database
+        conn_test = pymysql.connect(
             host=host,
             port=port,
             user=user,
             password=password,
+            database=db_name,
             connect_timeout=5
         )
-        with conn.cursor() as cursor:
-            cursor.execute(f"CREATE DATABASE IF NOT EXISTS `{db_name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
-        conn.close()
-        print(f"[OK] Connected to MySQL and database '{db_name}' ensured on attempt {attempt}.")
+        conn_test.close()
+        print(f"[OK] Successfully authenticated to MySQL database '{db_name}' on attempt {attempt}.")
         connected = True
         break
     except Exception as e:
