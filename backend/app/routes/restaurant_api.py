@@ -32,7 +32,10 @@ from app.extensions import db
 
 from app.models.user import User
 from app.models.audit import Notification
-from app.models.product import Product, ProductBatch, StockLedger, StockTransfer, Warehouse
+from app.models.product import (
+    Product, ProductCategory, ProductBarcode, Unit,
+    ProductBatch, StockLedger, StockTransfer, Warehouse
+)
 from app.models.restaurant_store import (
     StoreChannel, StoreDispatch, StoreDispatchItem, StoreCakeOrder, StoreSyncedProduct
 )
@@ -56,6 +59,85 @@ def _store_from_request():
     if not key:
         return None
     return StoreChannel.query.filter_by(api_key=key, is_active=True, is_deleted=False).first()
+
+
+def _upsert_into_main_products(tenant_id, company_id, items_to_sync):
+    """Ensure synced restaurant items also exist in main ERP Product catalog."""
+    if not items_to_sync:
+        return 0
+
+    unit = Unit.query.filter_by(tenant_id=tenant_id).filter(
+        db.or_(Unit.short_name.in_(['Nos', 'Pcs', 'pc', 'no']), Unit.name.ilike('%piece%'))
+    ).first()
+    if not unit:
+        unit = Unit.query.filter_by(tenant_id=tenant_id).first()
+    if not unit:
+        unit = Unit(tenant_id=tenant_id, name='Pieces', short_name='Pcs')
+        db.session.add(unit)
+        db.session.flush()
+
+    categories_cache = {c.name.lower(): c.id for c in ProductCategory.query.filter_by(tenant_id=tenant_id).all()}
+
+    synced_count = 0
+    for itm in items_to_sync:
+        name = itm.name.strip()
+        sku = (itm.sku or itm.barcode or f"RST-{itm.restaurant_item_id}").strip()
+        cat_name = (itm.category_name or 'General').strip()
+
+        cat_id = categories_cache.get(cat_name.lower())
+        if not cat_id:
+            new_cat = ProductCategory(tenant_id=tenant_id, name=cat_name)
+            db.session.add(new_cat)
+            db.session.flush()
+            cat_id = new_cat.id
+            categories_cache[cat_name.lower()] = cat_id
+
+        prod = None
+        if itm.erp_product_id:
+            prod = db.session.get(Product, itm.erp_product_id)
+        if not prod:
+            prod = Product.query.filter_by(tenant_id=tenant_id, name=name).first()
+        if not prod and sku:
+            prod = Product.query.filter_by(tenant_id=tenant_id, sku=sku).first()
+
+        if prod:
+            prod.selling_price = itm.selling_price or prod.selling_price
+            prod.retail_price = itm.selling_price or prod.retail_price
+            prod.purchase_price = itm.cost_price or prod.purchase_price
+            if not prod.category_id:
+                prod.category_id = cat_id
+            if itm.restaurant_stock:
+                prod.current_stock = int(itm.restaurant_stock)
+        else:
+            prod = Product(
+                tenant_id=tenant_id,
+                company_id=company_id,
+                category_id=cat_id,
+                unit_id=unit.id,
+                name=name,
+                sku=sku,
+                selling_price=itm.selling_price or 0.0,
+                retail_price=itm.selling_price or 0.0,
+                purchase_price=itm.cost_price or 0.0,
+                current_stock=int(itm.restaurant_stock or 0),
+                is_raw_material=False,
+                is_fresh=True,
+                is_batch_tracked=True,
+                is_active=True
+            )
+            db.session.add(prod)
+            db.session.flush()
+
+        if itm.barcode:
+            bc = ProductBarcode.query.filter_by(product_id=prod.id, barcode=itm.barcode).first()
+            if not bc:
+                bc = ProductBarcode(product_id=prod.id, barcode=itm.barcode, is_primary=True)
+                db.session.add(bc)
+
+        itm.erp_product_id = prod.id
+        synced_count += 1
+
+    return synced_count
 
 
 def _error(msg, code=400):
@@ -757,12 +839,51 @@ def sync_restaurant_catalog():
             ~StoreSyncedProduct.restaurant_item_id.in_(synced_item_ids)
         ).delete(synchronize_session=False)
 
+    all_store_synced = StoreSyncedProduct.query.filter_by(store_id=store.id, is_deleted=False).all()
+    _upsert_into_main_products(store.tenant_id, store.company_id, all_store_synced)
+
     db.session.commit()
     return jsonify({
         "data": {
             "upserted_count": upserted_count,
+            "main_products_count": len(all_store_synced),
             "store_id": store.id,
             "store_name": store.name
+        },
+        "errors": None
+    }), 200
+
+
+@store_bp.route('/synced-products/import-to-products', methods=['POST'])
+def import_synced_to_products():
+    """Import all current StoreSyncedProduct items into the main ERP Product catalog."""
+    store = _store_from_request()
+    tenant_id = None
+    company_id = None
+    if store:
+        tenant_id = store.tenant_id
+        company_id = store.company_id
+    else:
+        try:
+            from flask_jwt_extended import verify_jwt_in_request
+            verify_jwt_in_request()
+            user = _get_current_user()
+            if user:
+                tenant_id = user.tenant_id
+                company_id = user.company_id
+        except Exception:
+            pass
+
+    if not tenant_id:
+        return _error("Authentication required (X-API-Key or Bearer token)", 401)
+
+    synced_items = StoreSyncedProduct.query.filter_by(tenant_id=tenant_id, is_deleted=False).all()
+    count = _upsert_into_main_products(tenant_id, company_id, synced_items)
+    db.session.commit()
+    return jsonify({
+        "data": {
+            "imported_count": count,
+            "message": f"Successfully imported {count} items into main Bakery ERP Product catalog."
         },
         "errors": None
     }), 200

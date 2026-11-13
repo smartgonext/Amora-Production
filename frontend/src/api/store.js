@@ -29,3 +29,7 @@ export const listStoreChannelDispatches = (channelId) =>
 /** List synced restaurant catalog products & dual stock */
 export const listSyncedProducts = (params) =>
   apiClient.get('/store/synced-products', { params });
+
+/** Import all synced restaurant products into main ERP Product catalog */
+export const importSyncedToProducts = () =>
+  apiClient.post('/store/synced-products/import-to-products');

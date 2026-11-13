@@ -6,7 +6,7 @@ import {
 } from 'react-icons/fi';
 import {
   createStoreChannel, listStoreChannels, rotateStoreChannelKey,
-  listStoreChannelDispatches, listSyncedProducts
+  listStoreChannelDispatches, listSyncedProducts, importSyncedToProducts
 } from '../../api/store';
 
 const copyText = (text) => {
@@ -30,6 +30,20 @@ export default function StoreChannelPage() {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const [productTypeFilter, setProductTypeFilter] = useState('all'); // 'all', 'kot', 'retail'
+  const [importingToProducts, setImportingToProducts] = useState(false);
+
+  const handleImportToProducts = async () => {
+    try {
+      setImportingToProducts(true);
+      const res = await importSyncedToProducts();
+      toast.success(res.data?.data?.message || 'Imported items into Bakery ERP Products page!');
+      await loadSyncedProducts();
+    } catch (err) {
+      toast.error(err.response?.data?.errors?.[0] || 'Import failed');
+    } finally {
+      setImportingToProducts(false);
+    }
+  };
 
   const load = async () => {
     try {
@@ -244,6 +258,15 @@ export default function StoreChannelPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleImportToProducts}
+              disabled={importingToProducts || loadingProducts}
+              className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1.5 transition shadow-sm disabled:opacity-60"
+              title="Add these restaurant products into the main Bakery ERP Product catalog"
+            >
+              <FiPlus className="w-3.5 h-3.5" />
+              <span>{importingToProducts ? 'Importing…' : 'Import to Products Page'}</span>
+            </button>
             <button
               onClick={loadSyncedProducts}
               disabled={loadingProducts}
