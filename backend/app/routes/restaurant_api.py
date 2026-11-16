@@ -24,6 +24,7 @@ Authentication:
     * Management calls use a normal logged-in user JWT (flask_jwt_extended).
 """
 import uuid
+import re
 from datetime import datetime
 
 from flask import Blueprint, request, jsonify
@@ -769,7 +770,7 @@ def cake_orders_summary():
 
 @store_bp.route('/sync-restaurant-catalog', methods=['POST'])
 def sync_restaurant_catalog():
-    """Ingest restaurant products (own-barcode retail goods + KOT production snacks) into ERP."""
+    """Ingest restaurant products (own 5-digit base barcode retail goods + KOT kitchen production snacks) into ERP."""
     store = _store_from_request()
     if not store:
         return _error("Invalid X-API-Key", 401)
@@ -788,16 +789,50 @@ def sync_restaurant_catalog():
         rest_item_id = itm.get('id') or itm.get('restaurant_item_id')
         if not rest_item_id:
             continue
-        synced_item_ids.append(str(rest_item_id))
 
-        name = itm.get('name') or f"Restaurant Item #{rest_item_id}"
-        sku = itm.get('sku') or ''
-        barcode = itm.get('barcode') or itm.get('productQR') or sku or ''
-        category_name = itm.get('category_name') or itm.get('category') or 'General'
+        name = (itm.get('name') or f"Restaurant Item #{rest_item_id}").strip()
+        # Filter corrupt URL names
+        if not name or name.startswith('http:') or name.startswith('https:'):
+            continue
+
+        sku = (itm.get('sku') or '').strip()
+        barcode = (itm.get('barcode') or itm.get('productQR') or sku or '').strip()
+        category_name = (itm.get('category_name') or itm.get('category') or 'General').strip()
         is_kot = bool(itm.get('is_kot_item') or itm.get('isKOTEnabled') or False)
-        cost_price = float(itm.get('cost_price') or itm.get('costPerUnit') or 0.0)
-        selling_price = float(itm.get('selling_price') or itm.get('price') or 0.0)
-        restaurant_stock = float(itm.get('restaurant_stock') or itm.get('currentStock') or 0.0)
+
+        # STRICT FILTERING RULE:
+        # 1. KOT items are ALWAYS accepted (kitchen snacks, puffs, samosas, momos, rolls)
+        # 2. For non-KOT retail items:
+        #    - MUST NOT be 13-digit commercial EAN-13
+        #    - MUST NOT start with '890' commercial retail prefix
+        #    - MUST be shop's own 5-digit base barcodes (numeric 1-6 digits like 00001, 00010)
+        if not is_kot:
+            if len(barcode) == 13 or barcode.startswith('890'):
+                continue
+            if not re.match(r'^\d{1,6}$', barcode):
+                continue
+
+        # Guard against barcode in price field (> 999999)
+        try:
+            cost_price = float(itm.get('cost_price') or itm.get('costPerUnit') or 0.0)
+            if cost_price > 999999 or cost_price < 0:
+                cost_price = 0.0
+        except (ValueError, TypeError):
+            cost_price = 0.0
+
+        try:
+            selling_price = float(itm.get('selling_price') or itm.get('price') or 0.0)
+            if selling_price > 999999 or selling_price < 0:
+                selling_price = 0.0
+        except (ValueError, TypeError):
+            selling_price = 0.0
+
+        try:
+            restaurant_stock = float(itm.get('restaurant_stock') or itm.get('currentStock') or 0.0)
+        except (ValueError, TypeError):
+            restaurant_stock = 0.0
+
+        synced_item_ids.append(str(rest_item_id))
 
         existing = StoreSyncedProduct.query.filter_by(
             store_id=store.id,
@@ -834,10 +869,18 @@ def sync_restaurant_catalog():
         upserted_count += 1
 
     if replace:
-        StoreSyncedProduct.query.filter(
-            StoreSyncedProduct.store_id == store.id,
-            ~StoreSyncedProduct.restaurant_item_id.in_(synced_item_ids)
-        ).delete(synchronize_session=False)
+        # Remove any products from this store that are NOT in the incoming synced list
+        # OR any products that fail the strict barcode rules
+        all_store_prods = StoreSyncedProduct.query.filter_by(store_id=store.id).all()
+        for p in all_store_prods:
+            bc = (p.barcode or '').strip()
+            is_unwanted = (
+                p.restaurant_item_id not in synced_item_ids or
+                (not p.is_kot_item and (len(bc) == 13 or bc.startswith('890') or not re.match(r'^\d{1,6}$', bc))) or
+                p.name.startswith('http:') or p.name.startswith('https:')
+            )
+            if is_unwanted:
+                db.session.delete(p)
 
     all_store_synced = StoreSyncedProduct.query.filter_by(store_id=store.id, is_deleted=False).all()
     _upsert_into_main_products(store.tenant_id, store.company_id, all_store_synced)
@@ -891,27 +934,77 @@ def import_synced_to_products():
 
 @store_bp.route('/cleanup-unwanted-catalog', methods=['POST'])
 def cleanup_unwanted_catalog():
-    """Remove commercial FMCG grocery products, keeping only KOT items and Amora own-brand products."""
+    """Remove commercial FMCG grocery products (13-digit barcodes / 890...), keeping only KOT items and 5-digit base own bakery products."""
     store = _store_from_request()
-    if not store:
-        return _error("Invalid X-API-Key", 401)
+    tenant_id = None
+    company_id = None
+    if store:
+        tenant_id = store.tenant_id
+        company_id = store.company_id
+    else:
+        try:
+            from flask_jwt_extended import verify_jwt_in_request
+            verify_jwt_in_request()
+            user = _get_current_user()
+            if user:
+                tenant_id = user.tenant_id
+                company_id = user.company_id
+        except Exception:
+            pass
 
-    deleted = StoreSyncedProduct.query.filter(
-        StoreSyncedProduct.store_id == store.id,
-        StoreSyncedProduct.is_kot_item == False,
-        ~StoreSyncedProduct.category_name.ilike('%AMORA%'),
-        ~StoreSyncedProduct.category_name.ilike('%Bakery%'),
-        ~StoreSyncedProduct.category_name.ilike('%Cake%'),
-        ~StoreSyncedProduct.category_name.ilike('%Mixture%')
-    ).delete(synchronize_session=False)
+    if not tenant_id:
+        return _error("Authentication required (X-API-Key or Bearer token)", 401)
+
+    # Find and delete commercial non-KOT items from StoreSyncedProduct
+    synced_items = StoreSyncedProduct.query.filter_by(tenant_id=tenant_id).all()
+    deleted_synced = 0
+    removed_product_ids = []
+
+    for itm in synced_items:
+        bc = (itm.barcode or '').strip()
+        name = (itm.name or '').strip()
+        is_unwanted = (
+            name.startswith('http:') or
+            name.startswith('https:') or
+            (not itm.is_kot_item and (len(bc) == 13 or bc.startswith('890') or not re.match(r'^\d{1,6}$', bc)))
+        )
+        if is_unwanted:
+            if itm.erp_product_id:
+                removed_product_ids.append(itm.erp_product_id)
+            db.session.delete(itm)
+            deleted_synced += 1
+
+    # Also clean up from main Product table if they were auto-imported
+    deleted_products = 0
+    if removed_product_ids:
+        prods = Product.query.filter(Product.id.in_(removed_product_ids), Product.tenant_id == tenant_id).all()
+        for pr in prods:
+            pr.is_deleted = True
+            db.session.add(pr)
+            deleted_products += 1
+
+    # Also mark deleted any Product directly with 13-digit or 890 barcode
+    barcodes_13 = ProductBarcode.query.join(Product).filter(
+        Product.tenant_id == tenant_id,
+        Product.is_deleted == False
+    ).all()
+    for b in barcodes_13:
+        bcode = (b.barcode or '').strip()
+        if len(bcode) == 13 or bcode.startswith('890'):
+            p = db.session.get(Product, b.product_id)
+            if p:
+                p.is_deleted = True
+                db.session.add(p)
+                deleted_products += 1
 
     db.session.commit()
-    remaining = StoreSyncedProduct.query.filter_by(store_id=store.id, is_deleted=False).count()
+    remaining = StoreSyncedProduct.query.filter_by(tenant_id=tenant_id, is_deleted=False).count()
     return jsonify({
         "data": {
-            "deleted_count": deleted,
+            "deleted_synced_count": deleted_synced,
+            "deleted_products_count": deleted_products,
             "remaining_count": remaining,
-            "message": f"Successfully cleaned up {deleted} commercial items. Remaining Amora own & KOT items: {remaining}"
+            "message": f"Successfully cleaned up {deleted_synced} unwanted commercial items. Remaining KOT & 5-digit own items: {remaining}"
         },
         "errors": None
     }), 200
@@ -919,7 +1012,7 @@ def cleanup_unwanted_catalog():
 
 @store_bp.route('/synced-products', methods=['GET'])
 def list_synced_products():
-    """List synced restaurant items in ERP with side-by-side stock levels."""
+    """List synced restaurant items in ERP with category filtering and dual stock levels."""
     tenant_id = None
     key = (request.headers.get(API_KEY_HEADER) or '').strip()
     if key:
@@ -951,6 +1044,10 @@ def list_synced_products():
         query = query.filter_by(is_kot_item=True)
     elif is_kot in ('0', 'false', 'no'):
         query = query.filter_by(is_kot_item=False)
+
+    category = request.args.get('category')
+    if category and category.lower() != 'all':
+        query = query.filter(StoreSyncedProduct.category_name == category)
 
     search = request.args.get('search')
     if search:

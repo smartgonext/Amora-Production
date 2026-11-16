@@ -22,3 +22,5 @@ build/
 .idea/
 .DS_Store
 Thumbs.db
+scratch/
+sync_restaurant_to_production_erp.py

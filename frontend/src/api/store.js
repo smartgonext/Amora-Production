@@ -33,3 +33,7 @@ export const listSyncedProducts = (params) =>
 /** Import all synced restaurant products into main ERP Product catalog */
 export const importSyncedToProducts = () =>
   apiClient.post('/store/synced-products/import-to-products');
+
+/** Clean up commercial 13-digit FMCG items, keeping only KOT & 5-digit own barcode products */
+export const cleanupUnwantedCatalog = () =>
+  apiClient.post('/store/cleanup-unwanted-catalog');
