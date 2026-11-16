@@ -81,62 +81,71 @@ def _upsert_into_main_products(tenant_id, company_id, items_to_sync):
 
     synced_count = 0
     for itm in items_to_sync:
-        name = itm.name.strip()
-        sku = (itm.sku or itm.barcode or f"RST-{itm.restaurant_item_id}").strip()
-        cat_name = (itm.category_name or 'General').strip()
+        try:
+            with db.session.begin_nested():
+                name = itm.name.strip()
+                sku = (itm.sku or itm.barcode or f"RST-{itm.restaurant_item_id}").strip()
+                cat_name = (itm.category_name or 'General').strip()
 
-        cat_id = categories_cache.get(cat_name.lower())
-        if not cat_id:
-            new_cat = ProductCategory(tenant_id=tenant_id, name=cat_name)
-            db.session.add(new_cat)
-            db.session.flush()
-            cat_id = new_cat.id
-            categories_cache[cat_name.lower()] = cat_id
+                cat_id = categories_cache.get(cat_name.lower())
+                if not cat_id:
+                    new_cat = ProductCategory(tenant_id=tenant_id, name=cat_name)
+                    db.session.add(new_cat)
+                    db.session.flush()
+                    cat_id = new_cat.id
+                    categories_cache[cat_name.lower()] = cat_id
 
-        prod = None
-        if itm.erp_product_id:
-            prod = db.session.get(Product, itm.erp_product_id)
-        if not prod:
-            prod = Product.query.filter_by(tenant_id=tenant_id, name=name).first()
-        if not prod and sku:
-            prod = Product.query.filter_by(tenant_id=tenant_id, sku=sku).first()
+                prod = None
+                if itm.erp_product_id:
+                    prod = db.session.get(Product, itm.erp_product_id)
+                if not prod:
+                    prod = Product.query.filter_by(tenant_id=tenant_id, name=name).first()
+                if not prod and sku:
+                    prod = Product.query.filter_by(tenant_id=tenant_id, sku=sku).first()
 
-        if prod:
-            prod.selling_price = itm.selling_price or prod.selling_price
-            prod.retail_price = itm.selling_price or prod.retail_price
-            prod.purchase_price = itm.cost_price or prod.purchase_price
-            if not prod.category_id:
-                prod.category_id = cat_id
-            if itm.restaurant_stock:
-                prod.current_stock = int(itm.restaurant_stock)
-        else:
-            prod = Product(
-                tenant_id=tenant_id,
-                company_id=company_id,
-                category_id=cat_id,
-                unit_id=unit.id,
-                name=name,
-                sku=sku,
-                selling_price=itm.selling_price or 0.0,
-                retail_price=itm.selling_price or 0.0,
-                purchase_price=itm.cost_price or 0.0,
-                current_stock=int(itm.restaurant_stock or 0),
-                is_raw_material=False,
-                is_fresh=True,
-                is_batch_tracked=True,
-                is_active=True
-            )
-            db.session.add(prod)
-            db.session.flush()
+                if prod:
+                    prod.selling_price = itm.selling_price or prod.selling_price
+                    prod.retail_price = itm.selling_price or prod.retail_price
+                    prod.purchase_price = itm.cost_price or prod.purchase_price
+                    if not prod.category_id:
+                        prod.category_id = cat_id
+                    if itm.restaurant_stock is not None:
+                        prod.current_stock = int(itm.restaurant_stock)
+                else:
+                    prod = Product(
+                        tenant_id=tenant_id,
+                        company_id=company_id,
+                        category_id=cat_id,
+                        unit_id=unit.id,
+                        name=name,
+                        sku=sku,
+                        selling_price=itm.selling_price or 0.0,
+                        retail_price=itm.selling_price or 0.0,
+                        purchase_price=itm.cost_price or 0.0,
+                        current_stock=int(itm.restaurant_stock or 0),
+                        is_raw_material=False,
+                        is_fresh=True,
+                        is_batch_tracked=True,
+                        is_active=True
+                    )
+                    db.session.add(prod)
+                    db.session.flush()
 
-        if itm.barcode:
-            bc = ProductBarcode.query.filter_by(product_id=prod.id, barcode=itm.barcode).first()
-            if not bc:
-                bc = ProductBarcode(product_id=prod.id, barcode=itm.barcode, is_primary=True)
-                db.session.add(bc)
+                if itm.barcode:
+                    bc = ProductBarcode.query.filter_by(barcode=itm.barcode).first()
+                    if not bc:
+                        bc = ProductBarcode(
+                            tenant_id=tenant_id,
+                            product_id=prod.id,
+                            barcode=itm.barcode,
+                            is_primary=True
+                        )
+                        db.session.add(bc)
 
-        itm.erp_product_id = prod.id
-        synced_count += 1
+                itm.erp_product_id = prod.id
+                synced_count += 1
+        except Exception:
+            continue
 
     return synced_count
 
@@ -882,14 +891,22 @@ def sync_restaurant_catalog():
             if is_unwanted:
                 db.session.delete(p)
 
-    all_store_synced = StoreSyncedProduct.query.filter_by(store_id=store.id, is_deleted=False).all()
-    _upsert_into_main_products(store.tenant_id, store.company_id, all_store_synced)
+    db.session.flush()
+
+    # Upsert the processed chunk items into main ERP Product catalog
+    synced_to_upsert = StoreSyncedProduct.query.filter(
+        StoreSyncedProduct.store_id == store.id,
+        StoreSyncedProduct.restaurant_item_id.in_(synced_item_ids),
+        StoreSyncedProduct.is_deleted == False
+    ).all()
+    _upsert_into_main_products(store.tenant_id, store.company_id, synced_to_upsert)
 
     db.session.commit()
+    total_store_synced_count = StoreSyncedProduct.query.filter_by(store_id=store.id, is_deleted=False).count()
     return jsonify({
         "data": {
             "upserted_count": upserted_count,
-            "main_products_count": len(all_store_synced),
+            "main_products_count": total_store_synced_count,
             "store_id": store.id,
             "store_name": store.name
         },
